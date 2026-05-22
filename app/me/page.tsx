@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { signOut } from "@/app/login/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
   CATEGORY_LABELS,
@@ -27,6 +27,18 @@ type SavedEventRow = {
   } | null;
 };
 
+type SubmittedEventRow = {
+  id: string;
+  title: string;
+  starts_at: string;
+  venue_name: string | null;
+  area: string | null;
+  category: EventCategory;
+  cover_image_url: string | null;
+  approved: boolean;
+  created_at: string;
+};
+
 export default async function MePage() {
   const supabase = await createClient();
   const {
@@ -37,7 +49,7 @@ export default async function MePage() {
     redirect("/login");
   }
 
-  const [profileRes, savedRes] = await Promise.all([
+  const [profileRes, savedRes, submittedRes] = await Promise.all([
     supabase
       .from("profiles")
       .select("display_name, avatar_url")
@@ -55,6 +67,14 @@ export default async function MePage() {
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("events")
+      .select(
+        "id, title, starts_at, venue_name, area, category, cover_image_url, approved, created_at"
+      )
+      .eq("submitted_by", user.id)
+      .eq("source_type", "user")
+      .order("created_at", { ascending: false }),
   ]);
 
   const profile = profileRes.data;
@@ -64,6 +84,8 @@ export default async function MePage() {
     .filter(
       (e): e is NonNullable<SavedEventRow["events"]> => e !== null
     );
+
+  const submittedEvents = (submittedRes.data ?? []) as SubmittedEventRow[];
 
   const displayName =
     profile?.display_name ?? user.email?.split("@")[0] ?? "ゲスト";
@@ -128,6 +150,81 @@ export default async function MePage() {
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
                         {CATEGORY_LABELS[event.category]}
+                      </Badge>
+                      <time className="text-xs text-muted-foreground">
+                        {formatEventDateTime(event.starts_at)}
+                      </time>
+                    </div>
+                    <p className="line-clamp-2 text-sm font-semibold">
+                      {event.title}
+                    </p>
+                    {(event.area || event.venue_name) && (
+                      <p className="line-clamp-1 text-xs text-muted-foreground">
+                        {event.area && `${event.area} / `}
+                        {event.venue_name}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <Separator className="my-8" />
+
+      <section>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">投稿したイベント</h2>
+          <Link
+            href="/events/new"
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+          >
+            + 新規投稿
+          </Link>
+        </div>
+
+        {submittedEvents.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            まだ投稿はありません。
+            <Link
+              href="/events/new"
+              className="ml-1 text-foreground underline underline-offset-2"
+            >
+              イベントを投稿
+            </Link>
+            してみましょう。
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {submittedEvents.map((event) => (
+              <li key={event.id}>
+                <Link
+                  href={`/events/${event.id}`}
+                  className="group flex gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted"
+                >
+                  {event.cover_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={event.cover_image_url}
+                      alt=""
+                      className="h-20 w-20 shrink-0 rounded object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="h-20 w-20 shrink-0 rounded bg-muted" />
+                  )}
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {CATEGORY_LABELS[event.category]}
+                      </Badge>
+                      <Badge
+                        variant={event.approved ? "default" : "outline"}
+                        className="text-xs"
+                      >
+                        {event.approved ? "公開中" : "承認待ち"}
                       </Badge>
                       <time className="text-xs text-muted-foreground">
                         {formatEventDateTime(event.starts_at)}
