@@ -39,6 +39,26 @@ type SubmittedEventRow = {
   created_at: string;
 };
 
+type PointTransactionRow = {
+  id: string;
+  delta: number;
+  reason: string;
+  ref_event_id: string | null;
+  created_at: string;
+};
+
+const REASON_LABELS: Record<string, string> = {
+  event_approved: "イベント承認ボーナス",
+};
+
+function formatPointDate(iso: string) {
+  return new Date(iso).toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
 export default async function MePage() {
   const supabase = await createClient();
   const {
@@ -49,10 +69,10 @@ export default async function MePage() {
     redirect("/login");
   }
 
-  const [profileRes, savedRes, submittedRes] = await Promise.all([
+  const [profileRes, savedRes, submittedRes, pointHistoryRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, avatar_url")
+      .select("display_name, avatar_url, points")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -75,9 +95,17 @@ export default async function MePage() {
       .eq("submitted_by", user.id)
       .eq("source_type", "user")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("point_transactions")
+      .select("id, delta, reason, ref_event_id, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   const profile = profileRes.data;
+  const points = profile?.points ?? 0;
+  const pointHistory = (pointHistoryRes.data ?? []) as PointTransactionRow[];
   const saved = (savedRes.data ?? []) as unknown as SavedEventRow[];
   const savedEvents = saved
     .map((row) => row.events)
@@ -100,9 +128,15 @@ export default async function MePage() {
           )}
           <AvatarFallback>{initial}</AvatarFallback>
         </Avatar>
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           <h1 className="text-2xl font-bold tracking-tight">{displayName}</h1>
-          <p className="text-sm text-muted-foreground">{user.email}</p>
+          <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end rounded-lg border border-border bg-card px-3 py-2">
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            pt
+          </span>
+          <span className="text-xl font-bold tabular-nums">{points}</span>
         </div>
       </header>
 
@@ -241,6 +275,52 @@ export default async function MePage() {
                     )}
                   </div>
                 </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <Separator className="my-8" />
+
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">ポイント履歴</h2>
+          <span className="text-xs text-muted-foreground">
+            残高 {points} pt
+          </span>
+        </div>
+
+        {pointHistory.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            まだ履歴がありません。
+            <br />
+            投稿が承認されると +10pt が加算されます。
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {pointHistory.map((tx) => (
+              <li
+                key={tx.id}
+                className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-sm"
+              >
+                <div className="flex flex-col">
+                  <span className="font-medium">
+                    {REASON_LABELS[tx.reason] ?? tx.reason}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatPointDate(tx.created_at)}
+                  </span>
+                </div>
+                <span
+                  className={
+                    "tabular-nums font-semibold " +
+                    (tx.delta >= 0 ? "text-emerald-600" : "text-red-600")
+                  }
+                >
+                  {tx.delta > 0 ? "+" : ""}
+                  {tx.delta} pt
+                </span>
               </li>
             ))}
           </ul>
