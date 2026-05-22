@@ -25,6 +25,8 @@ type EventDetail = {
   cover_image_url: string | null;
   official_url: string;
   ticket_sale_starts_at: string | null;
+  approved: boolean;
+  submitted_by: string | null;
   event_tags: { tags: { slug: string; name: string } | null }[];
 };
 
@@ -39,7 +41,6 @@ export async function generateMetadata({
     .from("events")
     .select("title")
     .eq("id", id)
-    .eq("approved", true)
     .maybeSingle();
   return { title: data?.title ?? "イベント" };
 }
@@ -58,12 +59,11 @@ export default async function EventDetailPage({
       `
         id, title, description, starts_at, ends_at,
         venue_name, address, area, category, cover_image_url,
-        official_url, ticket_sale_starts_at,
+        official_url, ticket_sale_starts_at, approved, submitted_by,
         event_tags ( tags ( slug, name ) )
       `
     )
     .eq("id", id)
-    .eq("approved", true)
     .maybeSingle();
 
   if (error) {
@@ -81,24 +81,31 @@ export default async function EventDetailPage({
   }
 
   const event = data as unknown as EventDetail;
+
+  // 未承認イベントは投稿者本人のみ閲覧可
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
+  if (!event.approved && event.submitted_by !== viewer?.id) {
+    notFound();
+  }
   const tags = (event.event_tags ?? [])
     .map((et) => et.tags)
     .filter((t): t is { slug: string; name: string } => t !== null);
 
-  // ログイン状態 + 「行きたい」登録済みか
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // 「行きたい」登録済みか
   let isSaved = false;
-  if (user) {
+  if (viewer) {
     const { data: saved } = await supabase
       .from("saved_events")
       .select("event_id")
-      .eq("user_id", user.id)
+      .eq("user_id", viewer.id)
       .eq("event_id", event.id)
       .maybeSingle();
     isSaved = !!saved;
   }
+
+  const isPending = !event.approved;
 
   return (
     <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
@@ -110,6 +117,15 @@ export default async function EventDetailPage({
           ← イベント一覧に戻る
         </Link>
       </nav>
+
+      {isPending && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+          <p className="font-semibold">承認待ちのプレビュー</p>
+          <p className="mt-1 text-amber-900/80 dark:text-amber-100/80">
+            このイベントはまだ公開されていません。あなただけが見られる状態です。
+          </p>
+        </div>
+      )}
 
       {event.cover_image_url && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -193,7 +209,7 @@ export default async function EventDetailPage({
         >
           公式サイトへ
         </a>
-        <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!user} />
+        <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!viewer} />
       </div>
     </article>
   );
