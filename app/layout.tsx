@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Cue — 次の合図を、あなたへ。",
+    default: "Cue — 行きたいが、見つかる。",
     template: "%s | Cue",
   },
   description:
-    "東京のイベントを取りこぼさないためのアプリ。アート・音楽・舞台・祭り・季節の合図を、あなたに。",
+    "アート・音楽・舞台・祭り・季節のイベントを、まとめてチェック。気になる予定を見つけて、保存できるイベント発見アプリ。",
   applicationName: "Cue",
   appleWebApp: {
     capable: true,
@@ -49,7 +49,7 @@ export default function RootLayout({
       lang="ja"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
         <Header />
         <main className="flex-1 flex flex-col">{children}</main>
       </body>

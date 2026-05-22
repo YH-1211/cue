@@ -15,7 +15,7 @@ export async function Header() {
         <Link href="/" className="flex items-baseline gap-2">
           <span className="text-2xl font-bold tracking-tight">Cue</span>
           <span className="hidden text-xs text-muted-foreground sm:inline">
-            次の合図を、あなたへ。
+            行きたいが、見つかる。
           </span>
         </Link>
 

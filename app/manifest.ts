@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Cue — 次の合図を、あなたへ。",
+    name: "Cue — 行きたいが、見つかる。",
     short_name: "Cue",
     description:
-      "東京のイベントを取りこぼさないためのアプリ。アート・音楽・舞台・祭り・季節の合図を、あなたに。",
+      "アート・音楽・舞台・祭り・季節のイベントを、まとめてチェック。気になる予定を見つけて、保存できるイベント発見アプリ。",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",

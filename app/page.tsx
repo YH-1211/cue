@@ -1,81 +1,126 @@
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  CATEGORY_LABELS,
+  formatEventDateTime,
+  type EventCategory,
+} from "@/lib/events";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  art: "アート",
-  music: "音楽",
-  theater: "舞台",
-  festival: "祭り",
-  food: "フード",
-  seasonal: "季節",
-  film: "映像",
-  learning: "学び",
-};
-
-type Tag = {
-  id: number;
-  slug: string;
-  name: string;
-  category: string | null;
+type EventRow = {
+  id: string;
+  title: string;
+  starts_at: string;
+  venue_name: string | null;
+  area: string | null;
+  category: EventCategory;
+  cover_image_url: string | null;
 };
 
 export default async function Home() {
   const supabase = await createClient();
 
-  const { data: tags, error } = await supabase
-    .from("tags")
-    .select("id, slug, name, category")
-    .order("category", { ascending: true })
-    .order("id", { ascending: true });
+  const { data } = await supabase
+    .from("events")
+    .select("id, title, starts_at, venue_name, area, category, cover_image_url")
+    .eq("approved", true)
+    .gte("starts_at", new Date().toISOString())
+    .order("starts_at", { ascending: true })
+    .limit(6);
 
-  // カテゴリ別にグループ化
-  const tagsByCategory = (tags ?? []).reduce<Record<string, Tag[]>>(
-    (acc, tag) => {
-      const key = tag.category ?? "other";
-      (acc[key] ??= []).push(tag);
-      return acc;
-    },
-    {}
-  );
+  const events = (data ?? []) as EventRow[];
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-12 px-6 py-16">
-      <section className="flex flex-col items-center gap-4 text-center">
-        <h1 className="text-6xl sm:text-7xl font-bold tracking-tight">Cue</h1>
-        <p className="text-lg text-muted-foreground">
-          次の合図を、あなたへ。
+    <div className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6">
+      {/* ヒーロー */}
+      <section className="flex flex-col items-start gap-3 py-12 sm:py-16">
+        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+          行きたいが、
+          <br className="sm:hidden" />
+          見つかる。
+        </h1>
+        <p className="max-w-md text-sm text-muted-foreground sm:text-base">
+          アート、音楽、舞台、祭り、季節の出来事。
+          <br className="sm:hidden" />
+          気になる予定をまとめてチェック。
         </p>
-        <p className="max-w-md text-sm text-muted-foreground">
-          東京のアート・音楽・舞台・祭り・季節の出来事を、見逃さないために。
-        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Link href="/events" className={buttonVariants({ size: "default" })}>
+            イベントを見る
+          </Link>
+          <Link
+            href="/calendar"
+            className={buttonVariants({ variant: "outline", size: "default" })}
+          >
+            季節カレンダー
+          </Link>
+        </div>
       </section>
 
-      <section className="w-full">
-        <h2 className="mb-4 text-sm font-medium text-muted-foreground">
-          興味タグ (DB接続テスト)
-        </h2>
+      {/* これからのCue */}
+      <section>
+        <div className="mb-4 flex items-end justify-between">
+          <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
+            これからのCue
+          </h2>
+          <Link
+            href="/events"
+            className="text-xs text-muted-foreground hover:text-foreground sm:text-sm"
+          >
+            すべて見る →
+          </Link>
+        </div>
 
-        {error ? (
-          <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
-            タグ取得エラー: {error.message}
+        {events.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+            予定されているイベントはまだありません。
           </div>
         ) : (
-          <div className="space-y-4">
-            {Object.entries(tagsByCategory).map(([category, items]) => (
-              <div key={category}>
-                <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
-                  {CATEGORY_LABELS[category] ?? category}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {items.map((tag) => (
-                    <Badge key={tag.id} variant="secondary">
-                      {tag.name}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {events.map((event) => (
+              <li key={event.id}>
+                <Link
+                  href={`/events/${event.id}`}
+                  className="group block focus:outline-none"
+                >
+                  <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
+                    {event.cover_image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={event.cover_image_url}
+                        alt=""
+                        className="h-40 w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="h-40 w-full bg-muted" />
+                    )}
+                    <CardContent className="flex flex-col gap-2 p-4">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">
+                          {CATEGORY_LABELS[event.category]}
+                        </Badge>
+                        <time className="text-xs text-muted-foreground">
+                          {formatEventDateTime(event.starts_at)}
+                        </time>
+                      </div>
+                      <h3 className="line-clamp-2 text-base font-semibold leading-snug">
+                        {event.title}
+                      </h3>
+                      {(event.venue_name || event.area) && (
+                        <p className="line-clamp-1 text-sm text-muted-foreground">
+                          {event.area && `${event.area} / `}
+                          {event.venue_name}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </section>
     </div>
