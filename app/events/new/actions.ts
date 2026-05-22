@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { EVENT_CATEGORIES, isEventCategory } from "@/lib/events";
+import { isEventCategory } from "@/lib/events";
 
 export type SubmitState =
   | { status: "idle" }
@@ -184,6 +184,3 @@ export async function submitEvent(
   revalidatePath("/events");
   return { status: "success", eventId: data.id };
 }
-
-// 利便のため export
-export const ALLOWED_CATEGORIES = EVENT_CATEGORIES;
