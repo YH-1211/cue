@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/header";
@@ -20,6 +20,23 @@ export const metadata: Metadata = {
   },
   description:
     "東京のイベントを取りこぼさないためのアプリ。アート・音楽・舞台・祭り・季節の合図を、あなたに。",
+  applicationName: "Cue",
+  appleWebApp: {
+    capable: true,
+    title: "Cue",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0A0A0F",
 };
 
 export default function RootLayout({
