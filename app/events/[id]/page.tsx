@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -11,6 +12,40 @@ import {
   formatEventDateTime,
   type EventCategory,
 } from "@/lib/events";
+
+type ReportPhoto = {
+  id: string;
+  storage_path: string;
+  caption: string | null;
+};
+
+type ReportRow = {
+  id: string;
+  memo: string | null;
+  rating: number | null;
+  attended_on: string;
+  created_at: string;
+  user_id: string;
+  profiles: {
+    id: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  } | null;
+  attended_photos: ReportPhoto[];
+};
+
+function formatReportDate(iso: string) {
+  return new Date(iso).toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
+function ratingStars(rating: number | null) {
+  if (!rating) return null;
+  return "★".repeat(rating) + "☆".repeat(5 - rating);
+}
 
 type EventDetail = {
   id: string;
@@ -106,6 +141,45 @@ export default async function EventDetailPage({
   }
 
   const isPending = !event.approved;
+
+  // 行ったレポート一覧 (公開済みイベントのみ表示)
+  let reports: ReportRow[] = [];
+  let viewerHasReport = false;
+  if (event.approved) {
+    const { data: reportsData } = await supabase
+      .from("attended_events")
+      .select(
+        `
+          id, memo, rating, attended_on, created_at, user_id,
+          profiles ( id, display_name, avatar_url ),
+          attended_photos ( id, storage_path, caption )
+        `
+      )
+      .eq("event_id", event.id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+
+    reports = (reportsData ?? []) as unknown as ReportRow[];
+    if (viewer) {
+      viewerHasReport = reports.some((r) => r.user_id === viewer.id);
+    }
+  }
+
+  // Storage public URL を一括解決
+  const photoUrlMap = new Map<string, string>();
+  for (const r of reports) {
+    for (const p of r.attended_photos ?? []) {
+      const { data: pub } = supabase.storage
+        .from("event-reports")
+        .getPublicUrl(p.storage_path);
+      photoUrlMap.set(p.id, pub.publicUrl);
+    }
+  }
+
+  const eventEndIso = event.ends_at ?? event.starts_at;
+  // eslint-disable-next-line react-hooks/purity
+  const isPast = new Date(eventEndIso).getTime() < Date.now();
+  const canReport = event.approved && isPast;
 
   return (
     <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
@@ -210,7 +284,125 @@ export default async function EventDetailPage({
           公式サイトへ
         </a>
         <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!viewer} />
+        {canReport && (
+          <Link
+            href={`/events/${event.id}/report`}
+            className={buttonVariants({
+              size: "lg",
+              variant: viewerHasReport ? "outline" : "default",
+            })}
+          >
+            {viewerHasReport ? "レポートを編集" : "行ってきた / 感想を投稿"}
+          </Link>
+        )}
       </div>
+
+      {event.approved && (
+        <>
+          <Separator className="my-10" />
+          <section>
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="text-lg font-semibold">みんなの感想</h2>
+              <span className="text-xs text-muted-foreground">
+                {reports.length} 件
+              </span>
+            </div>
+
+            {reports.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                {canReport ? (
+                  <>
+                    まだ感想はありません。
+                    <Link
+                      href={`/events/${event.id}/report`}
+                      className="ml-1 text-foreground underline underline-offset-2"
+                    >
+                      最初のレポートを投稿
+                    </Link>
+                    しませんか？
+                  </>
+                ) : (
+                  <>開催後に参加レポートが投稿されると、ここに表示されます。</>
+                )}
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-4">
+                {reports.map((r) => {
+                  const name =
+                    r.profiles?.display_name ?? "匿名ユーザー";
+                  const initial = name.charAt(0).toUpperCase();
+                  const photos = r.attended_photos ?? [];
+                  return (
+                    <li
+                      key={r.id}
+                      className="rounded-lg border border-border bg-card p-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar className="size-9">
+                          {r.profiles?.avatar_url && (
+                            <AvatarImage src={r.profiles.avatar_url} alt="" />
+                          )}
+                          <AvatarFallback>{initial}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate text-sm font-semibold">
+                            {name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            参加日 {formatReportDate(r.attended_on)}
+                          </span>
+                        </div>
+                        {r.rating != null && (
+                          <span
+                            className="text-sm text-amber-500"
+                            aria-label={`評価 ${r.rating} / 5`}
+                          >
+                            {ratingStars(r.rating)}
+                          </span>
+                        )}
+                      </div>
+
+                      {photos.length > 0 && (
+                        <ul
+                          className={
+                            "mt-3 grid gap-2 " +
+                            (photos.length === 1
+                              ? "grid-cols-1"
+                              : photos.length === 2
+                              ? "grid-cols-2"
+                              : "grid-cols-3")
+                          }
+                        >
+                          {photos.map((p) => (
+                            <li
+                              key={p.id}
+                              className="aspect-square overflow-hidden rounded border border-border bg-muted"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={photoUrlMap.get(p.id) ?? ""}
+                                alt={p.caption ?? ""}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {r.memo && (
+                        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                          {r.memo}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+        </>
+      )}
     </article>
   );
 }

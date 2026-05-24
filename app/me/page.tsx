@@ -12,6 +12,29 @@ import {
   type EventCategory,
 } from "@/lib/events";
 
+type ReportListRow = {
+  id: string;
+  attended_on: string;
+  rating: number | null;
+  memo: string | null;
+  created_at: string;
+  events: {
+    id: string;
+    title: string;
+    starts_at: string;
+    category: EventCategory;
+  } | null;
+  attended_photos: { id: string; storage_path: string }[];
+};
+
+function formatAttendedDate(iso: string) {
+  return new Date(iso).toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
 export const metadata = { title: "マイページ" };
 
 type SavedEventRow = {
@@ -69,7 +92,7 @@ export default async function MePage() {
     redirect("/login");
   }
 
-  const [profileRes, savedRes, submittedRes, pointHistoryRes] = await Promise.all([
+  const [profileRes, savedRes, submittedRes, pointHistoryRes, reportsRes] = await Promise.all([
     supabase
       .from("profiles")
       .select("display_name, avatar_url, points")
@@ -101,6 +124,18 @@ export default async function MePage() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(10),
+    supabase
+      .from("attended_events")
+      .select(
+        `
+          id, attended_on, rating, memo, created_at,
+          events ( id, title, starts_at, category ),
+          attended_photos ( id, storage_path )
+        `
+      )
+      .eq("user_id", user.id)
+      .order("attended_on", { ascending: false })
+      .limit(20),
   ]);
 
   const profile = profileRes.data;
@@ -114,6 +149,10 @@ export default async function MePage() {
     );
 
   const submittedEvents = (submittedRes.data ?? []) as SubmittedEventRow[];
+
+  const reports = (reportsRes.data ?? []) as unknown as ReportListRow[];
+  const reportPhotoUrl = (path: string) =>
+    supabase.storage.from("event-reports").getPublicUrl(path).data.publicUrl;
 
   const displayName =
     profile?.display_name ?? user.email?.split("@")[0] ?? "ゲスト";
@@ -329,11 +368,86 @@ export default async function MePage() {
 
       <Separator className="my-8" />
 
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">行ったイベント</h2>
+          <span className="text-xs text-muted-foreground">
+            {reports.length} 件
+          </span>
+        </div>
+
+        {reports.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            まだレポートはありません。参加したイベントのページから
+            <br />
+            「行ってきた / 感想を投稿」できます。
+          </div>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {reports.map((r) => {
+              const ev = r.events;
+              const photos = r.attended_photos ?? [];
+              const firstPhoto = photos[0];
+              return (
+                <li key={r.id}>
+                  <Link
+                    href={ev ? `/events/${ev.id}` : "#"}
+                    className="group flex gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted"
+                  >
+                    {firstPhoto ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={reportPhotoUrl(firstPhoto.storage_path)}
+                        alt=""
+                        className="h-20 w-20 shrink-0 rounded object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded bg-muted text-[10px] text-muted-foreground">
+                        no photo
+                      </div>
+                    )}
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        {ev && (
+                          <Badge variant="secondary" className="text-xs">
+                            {CATEGORY_LABELS[ev.category]}
+                          </Badge>
+                        )}
+                        <time className="text-xs text-muted-foreground">
+                          {formatAttendedDate(r.attended_on)}
+                        </time>
+                        {r.rating != null && (
+                          <span className="text-xs text-amber-500">
+                            {"★".repeat(r.rating)}
+                          </span>
+                        )}
+                        {photos.length > 1 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            +{photos.length - 1} 枚
+                          </span>
+                        )}
+                      </div>
+                      <p className="line-clamp-1 text-sm font-semibold">
+                        {ev?.title ?? "(削除されたイベント)"}
+                      </p>
+                      {r.memo && (
+                        <p className="line-clamp-2 text-xs text-muted-foreground">
+                          {r.memo}
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <Separator className="my-8" />
+
       <section className="grid gap-4 sm:grid-cols-2">
-        <PlaceholderCard
-          title="行ったイベント"
-          description="参加した記録や写真メモを残せます。"
-        />
         <PlaceholderCard
           title="興味タグ"
           description="好きなジャンルを設定すると、おすすめが届きます。"
