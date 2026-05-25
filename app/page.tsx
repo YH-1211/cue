@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
+import { NearbyEvents } from "@/components/nearby-events";
 import {
   CATEGORY_LABELS,
   formatEventDateTime,
@@ -58,6 +59,11 @@ export default async function Home() {
           </Link>
         </div>
       </section>
+
+      {/* 近くで開催 (位置情報レコメンド Lv.1) */}
+      <div className="mb-12">
+        <NearbyEvents />
+      </div>
 
       {/* これからのCue */}
       <section>
