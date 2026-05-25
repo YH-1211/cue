@@ -95,7 +95,7 @@ export default async function MePage() {
   const [profileRes, savedRes, submittedRes, pointHistoryRes, reportsRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, avatar_url, points")
+      .select("display_name, avatar_url, points, interest_categories")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -140,6 +140,7 @@ export default async function MePage() {
 
   const profile = profileRes.data;
   const points = profile?.points ?? 0;
+  const interestCategories = (profile?.interest_categories ?? []) as EventCategory[];
   const pointHistory = (pointHistoryRes.data ?? []) as PointTransactionRow[];
   const saved = (savedRes.data ?? []) as unknown as SavedEventRow[];
   const savedEvents = saved
@@ -448,10 +449,30 @@ export default async function MePage() {
       <Separator className="my-8" />
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <PlaceholderCard
-          title="興味タグ"
-          description="好きなジャンルを設定すると、おすすめが届きます。"
-        />
+        <Link
+          href="/me/interests"
+          className="group rounded-lg border border-border bg-card p-5 transition-colors hover:bg-muted"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">興味タグ</h2>
+            <span className="text-xs text-muted-foreground group-hover:text-foreground">
+              編集 →
+            </span>
+          </div>
+          {interestCategories.length === 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              好きなジャンルを設定すると、ホームで優先表示されます。
+            </p>
+          ) : (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {interestCategories.map((c) => (
+                <Badge key={c} variant="secondary" className="text-xs">
+                  {CATEGORY_LABELS[c]}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </Link>
         <PlaceholderCard
           title="通知設定"
           description="チケット発売や開催前のリマインダー。"

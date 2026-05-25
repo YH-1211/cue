@@ -23,15 +23,47 @@ type EventRow = {
 export default async function Home() {
   const supabase = await createClient();
 
+  // ログインユーザーの興味タグを取得 (未ログインなら空)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let interestCategories: EventCategory[] = [];
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("interest_categories")
+      .eq("id", user.id)
+      .maybeSingle();
+    interestCategories = (profile?.interest_categories ??
+      []) as EventCategory[];
+  }
+
+  const hasInterests = interestCategories.length > 0;
+
+  // 興味タグがあれば、対象カテゴリを優先取得 (それ以外は不足分を補う)
   const { data } = await supabase
     .from("events")
     .select("id, title, starts_at, venue_name, area, category, cover_image_url")
     .eq("approved", true)
     .gte("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: true })
-    .limit(6);
+    .limit(hasInterests ? 24 : 6);
 
-  const events = (data ?? []) as EventRow[];
+  const allEvents = (data ?? []) as EventRow[];
+
+  let events: EventRow[];
+  if (hasInterests) {
+    const matched = allEvents.filter((e) =>
+      interestCategories.includes(e.category)
+    );
+    const others = allEvents.filter(
+      (e) => !interestCategories.includes(e.category)
+    );
+    events = [...matched, ...others].slice(0, 6);
+  } else {
+    events = allEvents.slice(0, 6);
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6">
@@ -79,6 +111,20 @@ export default async function Home() {
           </Link>
         </div>
 
+        {hasInterests && (
+          <p className="mb-3 text-xs text-muted-foreground">
+            あなたの興味タグ (
+            {interestCategories.map((c) => CATEGORY_LABELS[c]).join(" / ")})
+            を優先表示中。{" "}
+            <Link
+              href="/me/interests"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              編集
+            </Link>
+          </p>
+        )}
+
         {events.length === 0 ? (
           <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
             予定されているイベントはまだありません。
@@ -108,6 +154,12 @@ export default async function Home() {
                         <Badge variant="secondary">
                           {CATEGORY_LABELS[event.category]}
                         </Badge>
+                        {hasInterests &&
+                          interestCategories.includes(event.category) && (
+                            <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
+                              おすすめ
+                            </Badge>
+                          )}
                         <time className="text-xs text-muted-foreground">
                           {formatEventDateTime(event.starts_at)}
                         </time>
