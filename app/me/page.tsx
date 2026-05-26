@@ -473,10 +473,20 @@ export default async function MePage() {
             </div>
           )}
         </Link>
-        <PlaceholderCard
-          title="通知設定"
-          description="チケット発売や開催前のリマインダー。"
-        />
+        <Link
+          href="/me/notifications"
+          className="group rounded-lg border border-border bg-card p-5 transition-colors hover:bg-muted"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">通知設定</h2>
+            <span className="text-xs text-muted-foreground group-hover:text-foreground">
+              設定 →
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            開催リマインダーや興味マッチの新着を通知します。
+          </p>
+        </Link>
         <PlaceholderCard
           title="位置情報レコメンド"
           description="近くで開催されるイベントを通知します。"

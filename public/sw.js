@@ -1,6 +1,6 @@
 // Cue Service Worker
 // バージョン更新時に CACHE_NAME を変えると古いキャッシュが自動削除される
-const CACHE_NAME = "cue-v1";
+const CACHE_NAME = "cue-v2";
 const OFFLINE_URL = "/offline.html";
 
 // プリキャッシュ: オフライン用ページとアイコン
@@ -70,4 +70,52 @@ self.addEventListener("fetch", (event) => {
       )
     );
   }
+});
+
+// =====================================================
+// Web Push 受信
+// =====================================================
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: "Cue", body: event.data ? event.data.text() : "" };
+  }
+
+  const title = data.title || "Cue";
+  const options = {
+    body: data.body || "",
+    icon: data.icon || "/icon-192.png",
+    badge: data.badge || "/icon-192.png",
+    tag: data.tag || undefined,
+    data: { url: data.url || "/" },
+    requireInteraction: false,
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// 通知タップ時の遷移
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/";
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        // 既に開いているタブがあればそれを使う
+        for (const client of clients) {
+          if ("focus" in client) {
+            client.navigate(url).catch(() => {});
+            return client.focus();
+          }
+        }
+        // なければ新規で開く
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(url);
+        }
+      })
+  );
 });
