@@ -53,7 +53,7 @@ export default async function FeedPage({
       `
         id, memo, rating, attended_on, created_at, user_id, like_count,
         events!inner ( id, title, category, venue_name, area, approved ),
-        profiles ( id, display_name, avatar_url ),
+        profiles!attended_events_user_id_fkey ( id, display_name, avatar_url ),
         attended_photos ( id, storage_path, caption )
       `
     )
