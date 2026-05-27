@@ -15,6 +15,8 @@ export type IngestSource = {
   area_default: string | null;
   enabled: boolean;
   auto_approve: boolean;
+  include_pattern: string | null;
+  exclude_pattern: string | null;
 };
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -44,11 +46,19 @@ async function ingestFeed(admin: Admin, src: IngestSource): Promise<number> {
   const feed = await parser.parseURL(src.url);
   const items = feed.items ?? [];
 
+  // フィルタ用正規表現 (大文字小文字無視)
+  const includeRe = src.include_pattern ? safeRegex(src.include_pattern) : null;
+  const excludeRe = src.exclude_pattern ? safeRegex(src.exclude_pattern) : null;
+
   let upserted = 0;
   for (const item of items) {
     const link = item.link?.trim();
     const title = item.title?.trim();
     if (!link || !title) continue;
+
+    // キーワードフィルタ
+    if (excludeRe && excludeRe.test(title)) continue;
+    if (includeRe && !includeRe.test(title)) continue;
 
     // 開始日時は isoDate を優先 (Atom の updated/published, RSS の pubDate)
     const startsAtIso = item.isoDate ?? null;
@@ -85,4 +95,14 @@ async function ingestFeed(admin: Admin, src: IngestSource): Promise<number> {
     }
   }
   return upserted;
+}
+
+// 不正パターンが来てもクラッシュさせない
+function safeRegex(pattern: string): RegExp | null {
+  try {
+    return new RegExp(pattern, "i");
+  } catch (e) {
+    console.warn(`[ingest] invalid regex: ${pattern}`, e);
+    return null;
+  }
 }
