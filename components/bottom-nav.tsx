@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTransition } from "react";
-import { Home, Sparkles, PlusCircle, User } from "lucide-react";
+import { Home, Search, Sparkles, PlusCircle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Item = {
@@ -21,16 +21,22 @@ const items: Item[] = [
     match: (p) => p === "/",
   },
   {
-    href: "/feed",
-    label: "フィード",
-    icon: Sparkles,
-    match: (p) => p === "/feed" || p.startsWith("/feed/"),
+    href: "/search",
+    label: "検索",
+    icon: Search,
+    match: (p) => p === "/search" || p.startsWith("/search/"),
   },
   {
     href: "/events/new",
     label: "投稿",
     icon: PlusCircle,
     match: (p) => p === "/events/new",
+  },
+  {
+    href: "/feed",
+    label: "フィード",
+    icon: Sparkles,
+    match: (p) => p === "/feed" || p.startsWith("/feed/"),
   },
   {
     href: "/me",

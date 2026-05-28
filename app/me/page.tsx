@@ -542,6 +542,20 @@ export default async function MePage() {
                 RSS/Atom フィードの追加・有効/無効・即時実行ができます。
               </p>
             </Link>
+            <Link
+              href="/admin/news"
+              className="group rounded-lg border border-amber-500/40 bg-amber-500/5 p-5 transition-colors hover:bg-amber-500/10"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold">📰 ニュース管理</h2>
+                <span className="text-xs text-muted-foreground group-hover:text-foreground">
+                  編集 →
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                取り込んだニュースのタイトル・要約・画像を編集できます。
+              </p>
+            </Link>
           </>
         )}
       </section>

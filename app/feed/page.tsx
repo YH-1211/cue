@@ -6,6 +6,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { CATEGORY_LABELS, type EventCategory } from "@/lib/events";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { LikeButton } from "./like-button";
+import { ShareCardButton } from "./share-card-button";
 
 const PAGE_SIZE = 20;
 
@@ -210,21 +211,29 @@ export default async function FeedPage({
               )}
 
               {/* アクション */}
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex items-center justify-between gap-3">
                 <LikeButton
                   attendedEventId={r.id}
                   initialLiked={liked}
                   initialCount={r.like_count}
                   disabled={!viewer}
                 />
-                {ev && (
-                  <Link
-                    href={`/events/${ev.id}`}
-                    className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-                  >
-                    イベントを見る →
-                  </Link>
-                )}
+                <div className="flex items-center gap-3">
+                  {ev && (
+                    <ShareCardButton
+                      attendedEventId={r.id}
+                      eventTitle={ev.title}
+                    />
+                  )}
+                  {ev && (
+                    <Link
+                      href={`/events/${ev.id}`}
+                      className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    >
+                      イベントを見る →
+                    </Link>
+                  )}
+                </div>
               </div>
             </li>
           );

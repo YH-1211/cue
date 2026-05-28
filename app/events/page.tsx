@@ -56,12 +56,20 @@ export default async function EventsPage({
           <h1 className="text-3xl font-bold tracking-tight">イベント</h1>
           <p className="text-sm text-muted-foreground">これからの予定。</p>
         </div>
-        <Link
-          href="/events/new"
-          className={buttonVariants({ size: "sm", variant: "outline" })}
-        >
-          + 投稿する
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/search"
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+          >
+            🔍 検索
+          </Link>
+          <Link
+            href="/events/new"
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+          >
+            + 投稿する
+          </Link>
+        </div>
       </header>
 
       {/* カテゴリフィルタ */}

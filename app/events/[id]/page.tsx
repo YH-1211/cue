@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { SaveButton } from "./save-button";
 import {
@@ -181,6 +182,51 @@ export default async function EventDetailPage({
   const isPast = new Date(eventEndIso).getTime() < Date.now();
   const canReport = event.approved && isPast;
 
+  // 関連イベント (同カテゴリ + 同エリア優先 / 未来 / 自身を除く)
+  type RelatedRow = {
+    id: string;
+    title: string;
+    starts_at: string;
+    area: string | null;
+    cover_image_url: string | null;
+    category: EventCategory;
+  };
+  let related: RelatedRow[] = [];
+  if (event.approved && !isPast) {
+    const nowIso = new Date().toISOString();
+    let relQ = supabase
+      .from("events")
+      .select("id, title, starts_at, area, cover_image_url, category")
+      .eq("approved", true)
+      .neq("id", event.id)
+      .eq("category", event.category)
+      .gte("starts_at", nowIso)
+      .order("starts_at", { ascending: true })
+      .limit(6);
+    if (event.area) {
+      // エリアが分かるときは同エリア優先
+      relQ = relQ.eq("area", event.area);
+    }
+    const { data: relData } = await relQ;
+    related = (relData ?? []) as RelatedRow[];
+
+    // 同エリアで足りなければ、同カテゴリの他エリアでも補完
+    if (event.area && related.length < 6) {
+      const need = 6 - related.length;
+      const { data: more } = await supabase
+        .from("events")
+        .select("id, title, starts_at, area, cover_image_url, category")
+        .eq("approved", true)
+        .neq("id", event.id)
+        .eq("category", event.category)
+        .neq("area", event.area)
+        .gte("starts_at", nowIso)
+        .order("starts_at", { ascending: true })
+        .limit(need);
+      related = [...related, ...((more ?? []) as RelatedRow[])];
+    }
+  }
+
   return (
     <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       <nav className="mb-4 text-sm">
@@ -274,7 +320,7 @@ export default async function EventDetailPage({
 
       <Separator className="my-8" />
 
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <a
           href={event.official_url}
           target="_blank"
@@ -284,6 +330,14 @@ export default async function EventDetailPage({
           公式サイトへ
         </a>
         <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!viewer} />
+        {!isPast && (
+          <a
+            href={`/api/events/${event.id}/ics`}
+            className={buttonVariants({ size: "lg", variant: "outline" })}
+          >
+            カレンダーに追加 (.ics)
+          </a>
+        )}
         {canReport && (
           <Link
             href={`/events/${event.id}/report`}
@@ -296,6 +350,55 @@ export default async function EventDetailPage({
           </Link>
         )}
       </div>
+
+      {related.length > 0 && (
+        <>
+          <Separator className="my-10" />
+          <section>
+            <h2 className="mb-4 text-lg font-semibold">
+              関連イベント
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                同じ「{CATEGORY_LABELS[event.category]}」
+                {event.area && ` × ${event.area}優先`}
+              </span>
+            </h2>
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {related.map((r) => (
+                <li key={r.id}>
+                  <Link href={`/events/${r.id}`} className="group block">
+                    <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-md">
+                      {r.cover_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={r.cover_image_url}
+                          alt=""
+                          className="h-28 w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="h-28 w-full bg-muted" />
+                      )}
+                      <CardContent className="flex flex-col gap-1 p-3">
+                        <time className="text-xs text-muted-foreground">
+                          {formatEventDateTime(r.starts_at)}
+                        </time>
+                        <p className="line-clamp-2 text-sm font-medium leading-snug">
+                          {r.title}
+                        </p>
+                        {r.area && (
+                          <span className="text-xs text-muted-foreground">
+                            {r.area}
+                          </span>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
+      )}
 
       {event.approved && (
         <>

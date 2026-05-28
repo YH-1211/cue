@@ -27,6 +27,12 @@ export async function Header() {
             イベント
           </Link>
           <Link
+            href="/search"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            検索
+          </Link>
+          <Link
             href="/feed"
             className="hidden text-muted-foreground transition-colors hover:text-foreground sm:inline"
           >
