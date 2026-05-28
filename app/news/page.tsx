@@ -2,8 +2,14 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { CATEGORY_LABELS, type EventCategory } from "@/lib/events";
+import {
+  CATEGORY_LABELS,
+  EVENT_CATEGORIES,
+  isEventCategory,
+  type EventCategory,
+} from "@/lib/events";
 import { formatRelativeTime } from "@/lib/relative-time";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 30;
 
@@ -24,9 +30,12 @@ type NewsRow = {
 export default async function NewsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ before?: string }>;
+  searchParams: Promise<{ before?: string; category?: string }>;
 }) {
-  const { before } = await searchParams;
+  const { before, category } = await searchParams;
+  const selected: EventCategory | null =
+    category && isEventCategory(category) ? category : null;
+
   const supabase = await createClient();
 
   let query = supabase
@@ -37,9 +46,8 @@ export default async function NewsPage({
     .order("published_at", { ascending: false })
     .limit(PAGE_SIZE);
 
-  if (before) {
-    query = query.lt("published_at", before);
-  }
+  if (selected) query = query.eq("category", selected);
+  if (before) query = query.lt("published_at", before);
 
   const { data, error } = await query;
   const news = (data ?? []) as NewsRow[];
@@ -47,14 +55,49 @@ export default async function NewsPage({
   const nextBefore =
     news.length === PAGE_SIZE ? news[news.length - 1].published_at : null;
 
+  const buildHref = (cat: EventCategory | null) =>
+    cat ? `/news?category=${cat}` : "/news";
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
-      <header className="mb-6">
+      <header className="mb-4">
         <h1 className="text-2xl font-bold tracking-tight">ニュース</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           アート・音楽・カルチャー系の最新ニュース。
         </p>
       </header>
+
+      {/* カテゴリフィルタ */}
+      <nav
+        aria-label="カテゴリで絞り込み"
+        className="-mx-4 mb-6 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0"
+      >
+        <Link
+          href={buildHref(null)}
+          className={cn(
+            "shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors",
+            selected === null
+              ? "border-foreground bg-foreground text-background"
+              : "border-border text-muted-foreground hover:text-foreground"
+          )}
+        >
+          すべて
+        </Link>
+        {EVENT_CATEGORIES.map((cat) => (
+          <Link
+            key={cat}
+            href={buildHref(cat)}
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1.5 text-xs transition-colors",
+              selected === cat
+                ? "border-foreground bg-foreground text-background"
+                : "border-border text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {CATEGORY_LABELS[cat]}
+          </Link>
+        ))}
+      </nav>
 
       {error && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-600">
@@ -64,7 +107,9 @@ export default async function NewsPage({
 
       {news.length === 0 && !before && (
         <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          まだニュースがありません。
+          {selected
+            ? `「${CATEGORY_LABELS[selected]}」のニュースはまだありません。`
+            : "まだニュースがありません。"}
         </div>
       )}
 
@@ -120,7 +165,11 @@ export default async function NewsPage({
       {nextBefore && (
         <div className="mt-6 flex justify-center">
           <Link
-            href={`/news?before=${encodeURIComponent(nextBefore)}`}
+            href={
+              selected
+                ? `/news?category=${selected}&before=${encodeURIComponent(nextBefore)}`
+                : `/news?before=${encodeURIComponent(nextBefore)}`
+            }
             className={buttonVariants({ variant: "outline" })}
           >
             もっと見る

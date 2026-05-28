@@ -66,9 +66,26 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 30日より古いニュースを掃除
+  let purged: number | null = null;
+  try {
+    const { data: purgedCount, error: purgeErr } = await admin.rpc(
+      "purge_old_news",
+      { days: 30 }
+    );
+    if (purgeErr) {
+      console.warn("[ingest:purge] failed", purgeErr.message);
+    } else {
+      purged = (purgedCount as number) ?? 0;
+    }
+  } catch (e) {
+    console.warn("[ingest:purge] threw", e);
+  }
+
   return NextResponse.json({
     ok: true,
     sources_total: sources?.length ?? 0,
     results,
+    purged_news: purged,
   });
 }
