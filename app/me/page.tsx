@@ -505,28 +505,44 @@ export default async function MePage() {
           description="近くで開催されるイベントを通知します。"
         />
         {admin && (
-          <Link
-            href="/admin/moderation"
-            className="group rounded-lg border border-amber-500/40 bg-amber-500/5 p-5 transition-colors hover:bg-amber-500/10"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">⚙ モデレーション</h2>
-              {pendingCount > 0 ? (
-                <Badge variant="default" className="text-xs">
-                  {pendingCount}
-                </Badge>
-              ) : (
+          <>
+            <Link
+              href="/admin/moderation"
+              className="group rounded-lg border border-amber-500/40 bg-amber-500/5 p-5 transition-colors hover:bg-amber-500/10"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold">⚙ モデレーション</h2>
+                {pendingCount > 0 ? (
+                  <Badge variant="default" className="text-xs">
+                    {pendingCount}
+                  </Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground">
+                    管理 →
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {pendingCount > 0
+                  ? `${pendingCount} 件の未承認イベントを確認できます。`
+                  : "未承認のイベントはありません。"}
+              </p>
+            </Link>
+            <Link
+              href="/admin/sources"
+              className="group rounded-lg border border-amber-500/40 bg-amber-500/5 p-5 transition-colors hover:bg-amber-500/10"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold">🔌 取り込みソース</h2>
                 <span className="text-xs text-muted-foreground group-hover:text-foreground">
                   管理 →
                 </span>
-              )}
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {pendingCount > 0
-                ? `${pendingCount} 件の未承認イベントを確認できます。`
-                : "未承認のイベントはありません。"}
-            </p>
-          </Link>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                RSS/Atom フィードの追加・有効/無効・即時実行ができます。
+              </p>
+            </Link>
+          </>
         )}
       </section>
 
