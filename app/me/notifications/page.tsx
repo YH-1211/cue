@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { NotificationsClient } from "./notifications-client";
+import { HomeAreaSection } from "./home-area-section";
 
 export const metadata = { title: "通知設定" };
 
@@ -16,7 +17,7 @@ export default async function NotificationsPage() {
     supabase
       .from("profiles")
       .select(
-        "notify_interest_weekly, notify_reminder_eve, notify_reminder_morning, notify_ticket"
+        "notify_interest_weekly, notify_reminder_eve, notify_reminder_morning, notify_ticket, home_area, home_radius_km, notify_nearby_match"
       )
       .eq("id", user.id)
       .maybeSingle(),
@@ -27,11 +28,17 @@ export default async function NotificationsPage() {
       .limit(1),
   ]);
 
-  const prefs = profileRes.data ?? {
-    notify_interest_weekly: true,
-    notify_reminder_eve: true,
-    notify_reminder_morning: true,
-    notify_ticket: true,
+  const profile = profileRes.data ?? null;
+  const prefs = {
+    notify_interest_weekly: profile?.notify_interest_weekly ?? true,
+    notify_reminder_eve: profile?.notify_reminder_eve ?? true,
+    notify_reminder_morning: profile?.notify_reminder_morning ?? true,
+    notify_ticket: profile?.notify_ticket ?? true,
+  };
+  const homeAreaInitial = {
+    home_area: (profile?.home_area as string | null) ?? null,
+    home_radius_km: (profile?.home_radius_km as number | null) ?? 5,
+    notify_nearby_match: profile?.notify_nearby_match ?? true,
   };
   const hasSubscription = (subRes.data?.length ?? 0) > 0;
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
@@ -51,7 +58,7 @@ export default async function NotificationsPage() {
         この端末で通知を受け取るかどうかと、種類ごとの ON/OFF を設定できます。
       </p>
 
-      <div className="mt-8">
+      <div className="mt-8 flex flex-col gap-6">
         {vapidPublicKey ? (
           <NotificationsClient
             vapidPublicKey={vapidPublicKey}
@@ -63,6 +70,8 @@ export default async function NotificationsPage() {
             通知機能は現在準備中です (VAPID キー未設定)。
           </div>
         )}
+
+        <HomeAreaSection initial={homeAreaInitial} />
       </div>
     </div>
   );

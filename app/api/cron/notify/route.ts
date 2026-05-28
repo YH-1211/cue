@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { sendPushToUser } from "@/lib/web-push";
 import { CATEGORY_LABELS, type EventCategory } from "@/lib/events";
+import {
+  AREA_COORDS,
+  nearbyAreas,
+  type AreaName,
+} from "@/lib/tokyo-areas";
+
+function isAreaName(s: string): s is AreaName {
+  return s in AREA_COORDS;
+}
 
 // Cron は最大数十秒で完了させたい。Edge ではなく Node ランタイムで動かす。
 export const runtime = "nodejs";
@@ -47,6 +56,7 @@ export async function GET(req: NextRequest) {
     ticket_1h: 0,
     ticket_now: 0,
     interest_weekly: 0,
+    nearby_match: 0,
   };
 
   // ============================================
@@ -99,6 +109,14 @@ export async function GET(req: NextRequest) {
   // ============================================
   if (now.getDay() === 1 && now.getHours() === 9) {
     result.interest_weekly = await sendInterestWeekly(admin);
+  }
+
+  // ============================================
+  // 5) 近隣マッチ (日次: 朝 9 時帯に1回)
+  //    home_area × 興味タグ × 過去24h の新着
+  // ============================================
+  if (now.getHours() === 9) {
+    result.nearby_match = await sendNearbyMatch(admin);
   }
 
   return NextResponse.json({ ok: true, now: now.toISOString(), result });
@@ -330,6 +348,94 @@ async function sendInterestWeekly(
       await admin
         .from("notification_log")
         .insert({ user_id: u.id, kind: "interest_weekly", event_id: null });
+      sent += 1;
+    }
+  }
+  return sent;
+}
+
+// =====================================================
+// 近隣マッチ (日次): home_area × 興味カテゴリ × 過去24h 新着
+// =====================================================
+async function sendNearbyMatch(
+  admin: ReturnType<typeof createAdminClient>
+) {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+  // home_area が設定済みかつ近隣マッチ通知 ON
+  const { data: users, error } = await admin
+    .from("profiles")
+    .select(
+      "id, interest_categories, home_area, home_radius_km, notify_nearby_match"
+    )
+    .eq("notify_nearby_match", true)
+    .not("home_area", "is", null);
+
+  if (error || !users || users.length === 0) return 0;
+
+  let sent = 0;
+  for (const u of users as Array<{
+    id: string;
+    interest_categories: EventCategory[] | null;
+    home_area: string | null;
+    home_radius_km: number | null;
+  }>) {
+    if (!u.home_area || !isAreaName(u.home_area)) continue;
+
+    const origin = AREA_COORDS[u.home_area];
+    const radius = u.home_radius_km ?? 5;
+    const nearby = nearbyAreas(origin, radius).map((a) => a.area);
+    if (nearby.length === 0) continue;
+
+    const cats = u.interest_categories ?? [];
+
+    // 過去24h に作成された未来開催の承認済イベント
+    let query = admin
+      .from("events")
+      .select("id, title, category, area, starts_at")
+      .eq("approved", true)
+      .in("area", nearby)
+      .gte("created_at", since.toISOString())
+      .gte("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(10);
+    if (cats.length > 0) query = query.in("category", cats);
+
+    const { data: events } = await query;
+    if (!events || events.length === 0) continue;
+
+    // 既に nearby_match で送ったイベントは除外
+    const ids = events.map((e) => e.id);
+    const { data: sentLogs } = await admin
+      .from("notification_log")
+      .select("event_id")
+      .eq("user_id", u.id)
+      .eq("kind", "nearby_match")
+      .in("event_id", ids);
+    const sentSet = new Set((sentLogs ?? []).map((r) => r.event_id as string));
+    const fresh = events.filter((e) => !sentSet.has(e.id));
+    if (fresh.length === 0) continue;
+
+    const top = fresh[0];
+    const more = fresh.length - 1;
+    const ok = await sendPushToUser(admin, u.id, {
+      title: `近くで新着 (${fresh.length}件)`,
+      body:
+        more > 0
+          ? `${CATEGORY_LABELS[top.category as EventCategory]} ${top.title} ほか ${more} 件`
+          : `${CATEGORY_LABELS[top.category as EventCategory]} ${top.title}`,
+      url: `/events?area=${encodeURIComponent(u.home_area)}`,
+      tag: "nearby_match",
+    });
+    if (ok > 0) {
+      // 送ったイベントを全部 log に記録 (重複防止)
+      await admin.from("notification_log").insert(
+        fresh.map((e) => ({
+          user_id: u.id,
+          kind: "nearby_match",
+          event_id: e.id,
+        }))
+      );
       sent += 1;
     }
   }

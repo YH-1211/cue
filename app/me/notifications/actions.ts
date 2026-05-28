@@ -62,6 +62,35 @@ export type NotificationPrefs = {
   notify_ticket: boolean;
 };
 
+export type HomeAreaSettings = {
+  home_area: string | null;
+  home_radius_km: number;
+  notify_nearby_match: boolean;
+};
+
+export async function updateHomeArea(input: HomeAreaSettings) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未ログイン" };
+
+  const radius = Math.max(1, Math.min(30, Math.round(input.home_radius_km)));
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      home_area: input.home_area || null,
+      home_radius_km: radius,
+      notify_nearby_match: input.notify_nearby_match,
+    })
+    .eq("id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/me/notifications");
+  return { ok: true };
+}
+
 export async function updatePreferences(prefs: NotificationPrefs) {
   const supabase = await createClient();
   const {
