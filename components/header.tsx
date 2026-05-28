@@ -28,7 +28,7 @@ export async function Header() {
           </Link>
           <Link
             href="/feed"
-            className="text-muted-foreground transition-colors hover:text-foreground"
+            className="hidden text-muted-foreground transition-colors hover:text-foreground sm:inline"
           >
             フィード
           </Link>
@@ -46,7 +46,7 @@ export async function Header() {
           </Link>
           <Link
             href="/me"
-            className="text-muted-foreground transition-colors hover:text-foreground"
+            className="hidden text-muted-foreground transition-colors hover:text-foreground sm:inline"
           >
             マイページ
           </Link>
