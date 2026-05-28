@@ -124,13 +124,40 @@ async function upsertNews(
   link: string,
   publishedAt: Date
 ): Promise<boolean> {
+  // 既存レコードをチェック。既に image_url がある = 何もしない。OGP fetch を避けるため。
+  const { data: existing } = await admin
+    .from("news_items")
+    .select("id, image_url")
+    .eq("source_type", "rss")
+    .eq("source_id", link)
+    .maybeSingle();
+
+  if (existing?.image_url) return false;
+
+  // 画像取得: RSS content から → OGP fetch
+  let imageUrl: string | null = extractImage(item);
+  if (!imageUrl) {
+    imageUrl = await fetchOgImage(link);
+  }
+
+  if (existing) {
+    // 既存だが画像がなかった → image_url だけ更新
+    if (imageUrl) {
+      await admin
+        .from("news_items")
+        .update({ image_url: imageUrl })
+        .eq("id", existing.id);
+    }
+    return false;
+  }
+
   const row = {
     title: title.slice(0, 500),
     summary: (item.contentSnippet ?? "").slice(0, 500) || null,
     source_name: src.name.replace(/\s*\(.+\)\s*$/, ""), // "音楽ナタリー (試験)" → "音楽ナタリー"
     source_url: link,
     category: src.category_default,
-    image_url: extractImage(item),
+    image_url: imageUrl,
     published_at: publishedAt.toISOString(),
     source_type: "rss" as const,
     source_id: link,
@@ -152,6 +179,80 @@ function extractImage(item: FeedItem): string | null {
   const html = item.content ?? "";
   const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
   return m?.[1] ?? null;
+}
+
+// 記事 URL を fetch して og:image / twitter:image を抜く。タイムアウト 4秒。
+async function fetchOgImage(pageUrl: string): Promise<string | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(pageUrl, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml",
+      },
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) return null;
+    const type = res.headers.get("content-type") ?? "";
+    if (!type.includes("text/html") && !type.includes("xhtml")) return null;
+
+    // head の先頭 64KB だけで充分 (og タグは通常 head の早い段階)
+    const reader = res.body?.getReader();
+    if (!reader) return null;
+    const decoder = new TextDecoder("utf-8");
+    let html = "";
+    const MAX = 64 * 1024;
+    while (html.length < MAX) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      html += decoder.decode(value, { stream: true });
+      if (html.includes("</head>")) break;
+    }
+    try {
+      await reader.cancel();
+    } catch {
+      // ignore
+    }
+
+    const found =
+      matchMeta(html, "og:image") ??
+      matchMeta(html, "twitter:image") ??
+      matchMeta(html, "twitter:image:src");
+    if (!found) return null;
+
+    // 相対 URL を絶対 URL に
+    try {
+      return new URL(found, pageUrl).toString();
+    } catch {
+      return null;
+    }
+  } catch {
+    // タイムアウト / DNS / 接続失敗等は静かに諦める
+    return null;
+  }
+}
+
+function matchMeta(html: string, prop: string): string | null {
+  const escaped = prop.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // property="og:image" content="..." または content=".." property=".." 両対応
+  const patterns = [
+    new RegExp(
+      `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]*content=["']([^"']+)["']`,
+      "i"
+    ),
+    new RegExp(
+      `<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']${escaped}["']`,
+      "i"
+    ),
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m?.[1]) return m[1];
+  }
+  return null;
 }
 
 // 不正パターンが来てもクラッシュさせない
