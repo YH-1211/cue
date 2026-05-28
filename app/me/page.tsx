@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
+import { isAdmin } from "@/lib/admin";
 import { signOut } from "@/app/login/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -150,6 +152,17 @@ export default async function MePage() {
     );
 
   const submittedEvents = (submittedRes.data ?? []) as SubmittedEventRow[];
+
+  // 管理者なら未承認イベント件数を取得
+  const admin = await isAdmin();
+  let pendingCount = 0;
+  if (admin) {
+    const { count } = await createAdminClient()
+      .from("events")
+      .select("id", { count: "exact", head: true })
+      .eq("approved", false);
+    pendingCount = count ?? 0;
+  }
 
   const reports = (reportsRes.data ?? []) as unknown as ReportListRow[];
   const reportPhotoUrl = (path: string) =>
@@ -491,6 +504,30 @@ export default async function MePage() {
           title="位置情報レコメンド"
           description="近くで開催されるイベントを通知します。"
         />
+        {admin && (
+          <Link
+            href="/admin/moderation"
+            className="group rounded-lg border border-amber-500/40 bg-amber-500/5 p-5 transition-colors hover:bg-amber-500/10"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">⚙ モデレーション</h2>
+              {pendingCount > 0 ? (
+                <Badge variant="default" className="text-xs">
+                  {pendingCount}
+                </Badge>
+              ) : (
+                <span className="text-xs text-muted-foreground group-hover:text-foreground">
+                  管理 →
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {pendingCount > 0
+                ? `${pendingCount} 件の未承認イベントを確認できます。`
+                : "未承認のイベントはありません。"}
+            </p>
+          </Link>
+        )}
       </section>
 
       <Separator className="my-8" />
