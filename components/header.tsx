@@ -33,6 +33,12 @@ export async function Header() {
             フィード
           </Link>
           <Link
+            href="/news"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            ニュース
+          </Link>
+          <Link
             href="/calendar"
             className="hidden text-muted-foreground transition-colors hover:text-foreground sm:inline"
           >
