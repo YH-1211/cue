@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { NotificationsClient } from "./notifications-client";
 import { HomeAreaSection } from "./home-area-section";
+import { QuietHoursSection } from "./quiet-hours-section";
 
 export const metadata = { title: "通知設定" };
 
@@ -17,7 +18,7 @@ export default async function NotificationsPage() {
     supabase
       .from("profiles")
       .select(
-        "notify_interest_weekly, notify_reminder_eve, notify_reminder_morning, notify_ticket, home_area, home_radius_km, notify_nearby_match"
+        "notify_interest_weekly, notify_reminder_eve, notify_reminder_morning, notify_ticket, home_area, home_radius_km, notify_nearby_match, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end, notify_interest_min_score"
       )
       .eq("id", user.id)
       .maybeSingle(),
@@ -39,6 +40,15 @@ export default async function NotificationsPage() {
     home_area: (profile?.home_area as string | null) ?? null,
     home_radius_km: (profile?.home_radius_km as number | null) ?? 5,
     notify_nearby_match: profile?.notify_nearby_match ?? true,
+  };
+  const quietInitial = {
+    notify_quiet_hours_enabled: profile?.notify_quiet_hours_enabled ?? true,
+    notify_quiet_hours_start:
+      (profile?.notify_quiet_hours_start as number | null) ?? 22,
+    notify_quiet_hours_end:
+      (profile?.notify_quiet_hours_end as number | null) ?? 7,
+    notify_interest_min_score:
+      (profile?.notify_interest_min_score as number | null) ?? 1.0,
   };
   const hasSubscription = (subRes.data?.length ?? 0) > 0;
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
@@ -72,6 +82,8 @@ export default async function NotificationsPage() {
         )}
 
         <HomeAreaSection initial={homeAreaInitial} />
+
+        <QuietHoursSection initial={quietInitial} />
       </div>
     </div>
   );

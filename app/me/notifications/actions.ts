@@ -91,6 +91,41 @@ export async function updateHomeArea(input: HomeAreaSettings) {
   return { ok: true };
 }
 
+export type QuietHoursSettings = {
+  notify_quiet_hours_enabled: boolean;
+  notify_quiet_hours_start: number;
+  notify_quiet_hours_end: number;
+  notify_interest_min_score: number;
+};
+
+export async function updateQuietHours(input: QuietHoursSettings) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "未ログイン" };
+
+  const clampHour = (h: number) => Math.max(0, Math.min(23, Math.round(h)));
+  const allowedScores = [0.5, 1.0, 2.0];
+  const score = allowedScores.includes(input.notify_interest_min_score)
+    ? input.notify_interest_min_score
+    : 1.0;
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      notify_quiet_hours_enabled: input.notify_quiet_hours_enabled,
+      notify_quiet_hours_start: clampHour(input.notify_quiet_hours_start),
+      notify_quiet_hours_end: clampHour(input.notify_quiet_hours_end),
+      notify_interest_min_score: score,
+    })
+    .eq("id", user.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/me/notifications");
+  return { ok: true };
+}
+
 export async function updatePreferences(prefs: NotificationPrefs) {
   const supabase = await createClient();
   const {

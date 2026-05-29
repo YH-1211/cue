@@ -42,6 +42,28 @@ function isAuthorized(req: NextRequest) {
   return auth === `Bearer ${secret}`;
 }
 
+type QuietPrefs = {
+  notify_quiet_hours_enabled: boolean | null;
+  notify_quiet_hours_start: number | null;
+  notify_quiet_hours_end: number | null;
+};
+
+// 現在の JST 時刻が user の静音時間内なら true (= 送信を控える)
+function isQuietNow(prefs: QuietPrefs | null, now: Date): boolean {
+  if (!prefs || !prefs.notify_quiet_hours_enabled) return false;
+  const start = prefs.notify_quiet_hours_start ?? 22;
+  const end = prefs.notify_quiet_hours_end ?? 7;
+  if (start === end) return false; // 無効扱い
+  // JST の「時」を取得 (Cron は UTC で動く想定。+9h)
+  const jstHour = (now.getUTCHours() + 9) % 24;
+  if (start < end) {
+    // 例: 1〜6 → その範囲内
+    return jstHour >= start && jstHour < end;
+  }
+  // 日跨ぎ 例: 22〜7 → 22,23,0..6
+  return jstHour >= start || jstHour < end;
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -202,10 +224,13 @@ async function sendReminders(
     // ユーザー側の prefs
     const { data: profile } = await admin
       .from("profiles")
-      .select(opts.prefColumn)
+      .select(
+        `${opts.prefColumn}, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end`
+      )
       .eq("id", row.user_id)
       .maybeSingle();
     if (!profile || !(profile as Record<string, boolean>)[opts.prefColumn]) continue;
+    if (isQuietNow(profile as unknown as QuietPrefs, new Date())) continue;
 
     // 重複防止
     const dup = await admin
@@ -287,10 +312,13 @@ async function sendTicketSale(
     // ユーザー側 prefs (notify_ticket) でも一括 OFF できる
     const { data: profile } = await admin
       .from("profiles")
-      .select("notify_ticket")
+      .select(
+        "notify_ticket, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end"
+      )
       .eq("id", row.user_id)
       .maybeSingle();
     if (!profile?.notify_ticket) continue;
+    if (isQuietNow(profile as unknown as QuietPrefs, new Date())) continue;
 
     // 重複防止
     const dup = await admin
@@ -331,6 +359,40 @@ async function sendTicketSale(
 }
 
 // =====================================================
+// 保存履歴学習: 過去90日に保存したイベントの category 分布から重みを返す
+//   重み = (そのカテゴリの保存数 / 全保存数) * 2  (最大2点程度のブースト)
+// =====================================================
+async function learnCategoryWeights(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string
+): Promise<Partial<Record<EventCategory, number>>> {
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const { data } = await admin
+    .from("saved_events")
+    .select("events!inner ( category )")
+    .eq("user_id", userId)
+    .gte("created_at", since);
+
+  if (!data || data.length === 0) return {};
+
+  const counts: Partial<Record<EventCategory, number>> = {};
+  let total = 0;
+  for (const row of data as unknown as Array<{ events: { category: EventCategory } | null }>) {
+    const cat = row.events?.category;
+    if (!cat) continue;
+    counts[cat] = (counts[cat] ?? 0) + 1;
+    total += 1;
+  }
+  if (total === 0) return {};
+
+  const weights: Partial<Record<EventCategory, number>> = {};
+  for (const [cat, n] of Object.entries(counts)) {
+    weights[cat as EventCategory] = ((n as number) / total) * 2;
+  }
+  return weights;
+}
+
+// =====================================================
 // 興味マッチ新着 (週1)
 // =====================================================
 async function sendInterestWeekly(
@@ -343,19 +405,33 @@ async function sendInterestWeekly(
   // 興味タグを持ち、weekly ON のユーザー
   const { data: users } = await admin
     .from("profiles")
-    .select("id, interest_categories")
+    .select(
+      `id, interest_categories, notify_interest_min_score,
+       notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end`
+    )
     .eq("notify_interest_weekly", true)
     .not("interest_categories", "is", null);
 
   if (!users || users.length === 0) return 0;
 
   let sent = 0;
-  for (const u of users as Array<{ id: string; interest_categories: EventCategory[] | null }>) {
+  for (const u of users as Array<
+    {
+      id: string;
+      interest_categories: EventCategory[] | null;
+      notify_interest_min_score: number | null;
+    } & QuietPrefs
+  >) {
     const cats = u.interest_categories ?? [];
     if (cats.length === 0) continue;
+    if (isQuietNow(u, new Date())) continue;
+
+    // 保存履歴からカテゴリ重みを学習 (過去90日に保存したイベントの category 分布)
+    const catWeights = await learnCategoryWeights(admin, u.id);
+    const minScore = u.notify_interest_min_score ?? 1.0;
 
     // 過去7日に作られた、興味カテゴリに合う、未来開催のイベント
-    const { data: events } = await admin
+    const { data: rawEvents } = await admin
       .from("events")
       .select("id, title, category")
       .eq("approved", true)
@@ -363,9 +439,21 @@ async function sendInterestWeekly(
       .gte("created_at", since.toISOString())
       .gte("starts_at", new Date().toISOString())
       .order("starts_at", { ascending: true })
-      .limit(5);
+      .limit(20);
 
-    if (!events || events.length === 0) continue;
+    if (!rawEvents || rawEvents.length === 0) continue;
+
+    // スコア = 1 (興味カテゴリ一致の基礎点) + 保存履歴の重み。閾値で絞り、降順に。
+    const scored = rawEvents
+      .map((e) => ({
+        ...e,
+        score: 1 + (catWeights[e.category as EventCategory] ?? 0),
+      }))
+      .filter((e) => e.score >= minScore)
+      .sort((a, b) => b.score - a.score);
+
+    const events = scored.slice(0, 5);
+    if (events.length === 0) continue;
 
     // 同じ週は1回まで
     const dup = await admin
@@ -409,7 +497,8 @@ async function sendNearbyMatch(
   const { data: users, error } = await admin
     .from("profiles")
     .select(
-      "id, interest_categories, home_area, home_radius_km, notify_nearby_match"
+      `id, interest_categories, home_area, home_radius_km, notify_nearby_match,
+       notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end`
     )
     .eq("notify_nearby_match", true)
     .not("home_area", "is", null);
@@ -417,13 +506,16 @@ async function sendNearbyMatch(
   if (error || !users || users.length === 0) return 0;
 
   let sent = 0;
-  for (const u of users as Array<{
-    id: string;
-    interest_categories: EventCategory[] | null;
-    home_area: string | null;
-    home_radius_km: number | null;
-  }>) {
+  for (const u of users as Array<
+    {
+      id: string;
+      interest_categories: EventCategory[] | null;
+      home_area: string | null;
+      home_radius_km: number | null;
+    } & QuietPrefs
+  >) {
     if (!u.home_area || !isAreaName(u.home_area)) continue;
+    if (isQuietNow(u, new Date())) continue;
 
     const origin = AREA_COORDS[u.home_area];
     const radius = u.home_radius_km ?? 5;
