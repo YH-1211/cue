@@ -500,6 +500,20 @@ export default async function MePage() {
             開催リマインダーや興味マッチの新着を通知します。
           </p>
         </Link>
+        <Link
+          href="/me/follows"
+          className="group rounded-lg border border-border bg-card p-5 transition-colors hover:bg-muted"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">フォロー</h2>
+            <span className="text-xs text-muted-foreground group-hover:text-foreground">
+              一覧 →
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            フォロー中のユーザーとフォロワーを確認できます。
+          </p>
+        </Link>
         <PlaceholderCard
           title="位置情報レコメンド"
           description="近くで開催されるイベントを通知します。"
