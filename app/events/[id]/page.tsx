@@ -60,6 +60,7 @@ type EventDetail = {
   category: EventCategory;
   cover_image_url: string | null;
   official_url: string;
+  ticket_url: string | null;
   ticket_sale_starts_at: string | null;
   approved: boolean;
   submitted_by: string | null;
@@ -95,7 +96,7 @@ export default async function EventDetailPage({
       `
         id, title, description, starts_at, ends_at,
         venue_name, address, area, category, cover_image_url,
-        official_url, ticket_sale_starts_at, approved, submitted_by,
+        official_url, ticket_url, ticket_sale_starts_at, approved, submitted_by,
         event_tags ( tags ( slug, name ) )
       `
     )
@@ -329,6 +330,16 @@ export default async function EventDetailPage({
         >
           公式サイトへ
         </a>
+        {event.ticket_url && (
+          <a
+            href={event.ticket_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonVariants({ size: "lg", variant: "outline" })}
+          >
+            チケットを購入
+          </a>
+        )}
         <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!viewer} />
         {!isPast && (
           <a

@@ -556,6 +556,20 @@ export default async function MePage() {
                 取り込んだニュースのタイトル・要約・画像を編集できます。
               </p>
             </Link>
+            <Link
+              href="/admin/cron"
+              className="group rounded-lg border border-amber-500/40 bg-amber-500/5 p-5 transition-colors hover:bg-amber-500/10"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold">📊 Cron 実行履歴</h2>
+                <span className="text-xs text-muted-foreground group-hover:text-foreground">
+                  確認 →
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                ingest / notify Cron の成功・失敗を 30 日グラフで確認できます。
+              </p>
+            </Link>
           </>
         )}
       </section>

@@ -48,7 +48,8 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const now = new Date();
+  const startedAt = new Date();
+  const now = startedAt;
   const result = {
     reminder_eve: 0,
     reminder_morning: 0,
@@ -58,6 +59,8 @@ export async function GET(req: NextRequest) {
     interest_weekly: 0,
     nearby_match: 0,
   };
+
+  try {
 
   // ============================================
   // 1) 開催前リマインダー (前夜: 18:00〜23:00 帯で1回)
@@ -119,7 +122,47 @@ export async function GET(req: NextRequest) {
     result.nearby_match = await sendNearbyMatch(admin);
   }
 
-  return NextResponse.json({ ok: true, now: now.toISOString(), result });
+    await logCronRun(admin, {
+      startedAt,
+      ok: true,
+      summary: result,
+      error: null,
+    });
+
+    return NextResponse.json({ ok: true, now: now.toISOString(), result });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await logCronRun(admin, {
+      startedAt,
+      ok: false,
+      summary: result,
+      error: msg,
+    });
+    throw e;
+  }
+}
+
+async function logCronRun(
+  admin: ReturnType<typeof createAdminClient>,
+  args: {
+    startedAt: Date;
+    ok: boolean;
+    summary: Record<string, unknown> | null;
+    error: string | null;
+  }
+) {
+  try {
+    await admin.from("cron_run_logs").insert({
+      kind: "notify",
+      started_at: args.startedAt.toISOString(),
+      finished_at: new Date().toISOString(),
+      ok: args.ok,
+      summary: args.summary,
+      error: args.error ? args.error.slice(0, 2000) : null,
+    });
+  } catch (e) {
+    console.warn("[notify:log] failed", e);
+  }
 }
 
 // =====================================================

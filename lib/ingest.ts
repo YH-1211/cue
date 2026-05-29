@@ -93,6 +93,19 @@ async function upsertEvent(
   link: string,
   startsAt: Date
 ): Promise<boolean> {
+  // 既存レコードを確認。ticket_url がまだ無いときだけ fetch を試みる (upsertNews と同じ方針)。
+  const { data: existing } = await admin
+    .from("events")
+    .select("id, ticket_url")
+    .eq("source_type", "rss")
+    .eq("source_id", link)
+    .maybeSingle();
+
+  let ticketUrl: string | null = existing?.ticket_url ?? null;
+  if (!ticketUrl) {
+    ticketUrl = await fetchTicketUrl(link);
+  }
+
   const row = {
     title: title.slice(0, 500),
     description: (item.contentSnippet ?? "").slice(0, 2000) || null,
@@ -103,6 +116,7 @@ async function upsertEvent(
     source_type: "rss" as const,
     source_id: link,
     approved: src.auto_approve,
+    ticket_url: ticketUrl,
   };
 
   const { error } = await admin
@@ -253,6 +267,122 @@ function matchMeta(html: string, prop: string): string | null {
     if (m?.[1]) return m[1];
   }
   return null;
+}
+
+// 公式ページを fetch して、チケット販売/予約ページへのリンクを探す。タイムアウト 4秒。
+// 検出ルール:
+//   - href が ticket / 主要プレイガイド (tixee, t.pia.jp, eplus.jp, peatix.com, connpass.com/event/, eventbrite, tiget, passmarket) を含む
+//   - リンクテキストが「チケット」「予約」「申込」「購入」「お申し込み」を含む
+//   - 同一オリジンへのリンクは原則スキップ。ただし path に "ticket" を含む場合は内部チケットページとして許可。
+const TICKET_HREF_PATTERNS = [
+  "ticket",
+  "tixee",
+  "t.pia.jp",
+  "eplus.jp",
+  "peatix.com",
+  "connpass.com/event/",
+  "eventbrite",
+  "tiget",
+  "passmarket",
+];
+const TICKET_TEXT_KEYWORDS = [
+  "チケット",
+  "予約",
+  "申込",
+  "購入",
+  "チケット購入",
+  "お申し込み",
+];
+
+async function fetchTicketUrl(pageUrl: string): Promise<string | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(pageUrl, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml",
+      },
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) return null;
+    const type = res.headers.get("content-type") ?? "";
+    if (!type.includes("text/html") && !type.includes("xhtml")) return null;
+
+    // チケットリンクは body 中段以降にあることも多いので og 取得より少し多めに 128KB 読む
+    const reader = res.body?.getReader();
+    if (!reader) return null;
+    const decoder = new TextDecoder("utf-8");
+    let html = "";
+    const MAX = 128 * 1024;
+    while (html.length < MAX) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      html += decoder.decode(value, { stream: true });
+    }
+    try {
+      await reader.cancel();
+    } catch {
+      // ignore
+    }
+
+    let baseOrigin: string;
+    try {
+      baseOrigin = new URL(pageUrl).origin;
+    } catch {
+      return null;
+    }
+
+    // <a ...href="..."...>text</a> を網羅 (シンプルな正規表現でグローバルにスキャン)
+    const anchorRe = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
+    let m: RegExpExecArray | null;
+    while ((m = anchorRe.exec(html)) !== null) {
+      const attrs = m[1] ?? "";
+      const inner = m[2] ?? "";
+      const hrefMatch =
+        attrs.match(/\bhref\s*=\s*"([^"]+)"/i) ??
+        attrs.match(/\bhref\s*=\s*'([^']+)'/i);
+      if (!hrefMatch) continue;
+      const rawHref = hrefMatch[1].trim();
+      if (!rawHref || rawHref.startsWith("#") || rawHref.startsWith("javascript:")) continue;
+
+      // 相対 URL を絶対 URL に解決
+      let abs: URL;
+      try {
+        abs = new URL(rawHref, pageUrl);
+      } catch {
+        continue;
+      }
+      if (abs.protocol !== "http:" && abs.protocol !== "https:") continue;
+
+      const absStr = abs.toString();
+      const lowerHref = absStr.toLowerCase();
+      // テキスト部のタグを除去 + 連続空白を畳む
+      const textOnly = inner
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const hrefHit = TICKET_HREF_PATTERNS.some((p) => lowerHref.includes(p));
+      const textHit = TICKET_TEXT_KEYWORDS.some((k) => textOnly.includes(k));
+      if (!hrefHit && !textHit) continue;
+
+      // 同一オリジンは原則スキップ。ただし path に "ticket" を含むなら内部チケットページとして許可。
+      const sameOrigin = abs.origin === baseOrigin;
+      if (sameOrigin && !abs.pathname.toLowerCase().includes("ticket")) {
+        continue;
+      }
+
+      return absStr;
+    }
+
+    return null;
+  } catch {
+    // タイムアウト / 接続失敗等は静かに諦める
+    return null;
+  }
 }
 
 // 不正パターンが来てもクラッシュさせない
