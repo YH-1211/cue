@@ -97,7 +97,7 @@ export default async function MePage() {
   const [profileRes, savedRes, submittedRes, pointHistoryRes, reportsRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, avatar_url, points, interest_categories")
+      .select("display_name, avatar_url, points, interest_categories, bio")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -183,7 +183,21 @@ export default async function MePage() {
         </Avatar>
         <div className="flex min-w-0 flex-1 flex-col">
           <h1 className="text-2xl font-bold tracking-tight">{displayName}</h1>
-          <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+          {profile?.bio ? (
+            <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
+              {profile.bio}
+            </p>
+          ) : (
+            <p className="truncate text-sm text-muted-foreground">
+              {user.email}
+            </p>
+          )}
+          <Link
+            href="/me/profile"
+            className="mt-1.5 w-fit text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            プロフィールを編集
+          </Link>
         </div>
         <div className="flex shrink-0 flex-col items-end rounded-lg border border-border bg-card px-3 py-2">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
