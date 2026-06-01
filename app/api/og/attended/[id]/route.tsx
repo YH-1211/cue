@@ -1,11 +1,17 @@
 import { ImageResponse } from "next/og";
 import { createClient } from "@/utils/supabase/server";
-import { CATEGORY_LABELS, type EventCategory } from "@/lib/events";
+import {
+  CATEGORY_LABELS,
+  parentOf,
+  type EventCategory,
+  type ParentCategory,
+} from "@/lib/events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CATEGORY_COLOR: Record<EventCategory, string> = {
+// 色は親カテゴリー単位 (サブは親色を継承)
+const CATEGORY_COLOR: Record<ParentCategory, string> = {
   art: "#ec4899",
   music: "#8b5cf6",
   theater: "#f59e0b",
@@ -76,7 +82,7 @@ export async function GET(
   const name = row.profiles?.display_name ?? "Cue ユーザー";
   const dateLabel = formatDateJp(row.attended_on);
   const categoryLabel = CATEGORY_LABELS[ev.category];
-  const accent = CATEGORY_COLOR[ev.category];
+  const accent = CATEGORY_COLOR[parentOf(ev.category as EventCategory)];
   const stars =
     row.rating != null
       ? "★".repeat(row.rating) + "☆".repeat(5 - row.rating)

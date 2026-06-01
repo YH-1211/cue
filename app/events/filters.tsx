@@ -5,9 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  CATEGORY_LABELS,
-  EVENT_CATEGORIES,
-  type EventCategory,
+  PARENT_CATEGORIES,
+  PARENT_LABELS,
+  SUBCATEGORIES,
+  SUBCATEGORY_LABELS,
+  isEventCategory,
+  isParentCategory,
+  parentOf,
 } from "@/lib/events";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +62,7 @@ export function EventsFilters({
   const urlQ = params.get("q") ?? "";
   const date = params.get("date") ?? "";
   const category = params.get("category") ?? "";
+  const sort = params.get("sort") ?? "";
   const areas = (params.get("areas") ?? "").split(",").filter(Boolean);
 
   // 検索入力のみローカル state (タイプ中の値を保持)。URL の q が変わったら入力もそれに合わせる
@@ -73,16 +78,19 @@ export function EventsFilters({
     q?: string;
     date?: string;
     category?: string;
+    sort?: string;
     areas?: string[];
   }) {
     const sp = new URLSearchParams();
     const newQ = next.q ?? q;
     const newDate = next.date ?? date;
     const newCategory = next.category ?? category;
+    const newSort = next.sort ?? sort;
     const newAreas = next.areas ?? areas;
     if (newQ) sp.set("q", newQ);
     if (newDate) sp.set("date", newDate);
     if (newCategory) sp.set("category", newCategory);
+    if (newSort) sp.set("sort", newSort);
     if (newAreas.length > 0) sp.set("areas", newAreas.join(","));
     const qs = sp.toString();
     start(() => router.push(qs ? `${basePath}?${qs}` : basePath));
@@ -108,7 +116,13 @@ export function EventsFilters({
     apply({ q });
   }
 
-  const hasAny = urlQ || date || category || areas.length > 0;
+  const hasAny = urlQ || date || category || sort || areas.length > 0;
+
+  const SORTS = [
+    { value: "", label: "開催が近い順" },
+    { value: "popular", label: "人気順" },
+    { value: "new", label: "新着順" },
+  ] as const;
 
   return (
     <div
@@ -144,39 +158,83 @@ export function EventsFilters({
         )}
       </form>
 
-      {/* 日付プリセット */}
-      <div className="flex flex-wrap gap-1.5">
-        {DATE_PRESETS.map((d) => (
-          <PillButton
-            key={d.value}
-            active={date === d.value}
-            onClick={() => selectDate(d.value)}
-          >
-            {d.label}
-          </PillButton>
-        ))}
-      </div>
-
-      {/* カテゴリ (横スクロール可) */}
-      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <div className="flex gap-1.5">
-          <PillButton
-            active={category === ""}
-            onClick={() => selectCategory("")}
-          >
-            全カテゴリ
-          </PillButton>
-          {EVENT_CATEGORIES.map((c) => (
+      {/* 日付プリセット + 並び替え */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-1.5">
+          {DATE_PRESETS.map((d) => (
             <PillButton
-              key={c}
-              active={category === c}
-              onClick={() => selectCategory(c)}
+              key={d.value}
+              active={date === d.value}
+              onClick={() => selectDate(d.value)}
             >
-              {CATEGORY_LABELS[c as EventCategory]}
+              {d.label}
+            </PillButton>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {SORTS.map((s) => (
+            <PillButton
+              key={s.value}
+              active={sort === s.value}
+              onClick={() => apply({ sort: s.value })}
+            >
+              {s.label}
             </PillButton>
           ))}
         </div>
       </div>
+
+      {/* カテゴリ (親 → サブの2階層) */}
+      {(() => {
+        const active = category && isEventCategory(category) ? category : "";
+        const activeParent = active ? parentOf(active) : null;
+        return (
+          <div className="flex flex-col gap-2">
+            {/* 親カテゴリ */}
+            <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+              <div className="flex gap-1.5">
+                <PillButton
+                  active={active === ""}
+                  onClick={() => selectCategory("")}
+                >
+                  全カテゴリ
+                </PillButton>
+                {PARENT_CATEGORIES.map((p) => (
+                  <PillButton
+                    key={p}
+                    active={activeParent === p}
+                    onClick={() => selectCategory(p)}
+                  >
+                    {PARENT_LABELS[p]}
+                  </PillButton>
+                ))}
+              </div>
+            </div>
+            {/* サブカテゴリ (親選択時のみ) */}
+            {activeParent && (
+              <div className="-mx-4 overflow-x-auto border-t border-border px-4 pt-2 sm:mx-0 sm:px-0">
+                <div className="flex gap-1.5">
+                  <PillButton
+                    active={isParentCategory(active as string)}
+                    onClick={() => selectCategory(activeParent)}
+                  >
+                    {PARENT_LABELS[activeParent]} (すべて)
+                  </PillButton>
+                  {SUBCATEGORIES[activeParent].map((sub) => (
+                    <PillButton
+                      key={sub}
+                      active={active === sub}
+                      onClick={() => selectCategory(sub)}
+                    >
+                      {SUBCATEGORY_LABELS[sub]}
+                    </PillButton>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* エリア (複数選択) */}
       <details className="rounded-lg border border-border bg-card p-3">

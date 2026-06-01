@@ -4,8 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CATEGORY_LABELS,
+  categoriesUnderParent,
   formatEventDateTime,
   isEventCategory,
+  isParentCategory,
   type EventCategory,
 } from "@/lib/events";
 import { EventsFilters } from "@/app/events/filters";
@@ -27,6 +29,7 @@ type SearchParams = {
   date?: string;
   category?: string;
   areas?: string;
+  sort?: string;
 };
 
 function resolveDateRange(preset: string | undefined): {
@@ -74,6 +77,7 @@ export default async function SearchPage({
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const datePreset = sp.date ?? "";
+  const sort = sp.sort ?? "";
   const activeCategory =
     sp.category && isEventCategory(sp.category) ? sp.category : null;
   const areas = (sp.areas ?? "")
@@ -101,11 +105,21 @@ export default async function SearchPage({
       )
       .eq("approved", true)
       .gte("starts_at", baseFrom)
-      .order("starts_at", { ascending: true })
       .limit(50);
 
+    // 並び替え: 新着順は created_at、それ以外は開催が近い順。
+    // 人気順は開催が近い順で取得してから保存数で並べ替える。
+    query =
+      sort === "new"
+        ? query.order("created_at", { ascending: false })
+        : query.order("starts_at", { ascending: true });
+
     if (dateTo) query = query.lt("starts_at", dateTo);
-    if (activeCategory) query = query.eq("category", activeCategory);
+    if (activeCategory) {
+      query = isParentCategory(activeCategory)
+        ? query.in("category", categoriesUnderParent(activeCategory))
+        : query.eq("category", activeCategory);
+    }
     if (areas.length > 0) query = query.in("area", areas);
     if (q) {
       const safe = q.replace(/[%,]/g, " ");
@@ -115,6 +129,24 @@ export default async function SearchPage({
     const { data, error } = await query;
     events = (data ?? []) as EventRow[];
     errorMessage = error?.message ?? null;
+
+    // 人気順: 取得済みイベントの「行きたい」保存数で降順に並べ替える
+    if (sort === "popular" && events.length > 0) {
+      const ids = events.map((e) => e.id);
+      const { data: saves } = await supabase
+        .from("saved_events")
+        .select("event_id")
+        .in("event_id", ids);
+      const counts = new Map<string, number>();
+      for (const s of saves ?? []) {
+        counts.set(s.event_id, (counts.get(s.event_id) ?? 0) + 1);
+      }
+      events = [...events].sort((a, b) => {
+        const diff = (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0);
+        if (diff !== 0) return diff;
+        return a.starts_at.localeCompare(b.starts_at);
+      });
+    }
   }
 
   return (

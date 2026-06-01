@@ -8,7 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CATEGORY_LABELS, EVENT_CATEGORIES } from "@/lib/events";
+import {
+  PARENT_CATEGORIES,
+  PARENT_LABELS,
+  SUBCATEGORIES,
+  SUBCATEGORY_LABELS,
+} from "@/lib/events";
 
 const initialState: SubmitState = { status: "idle" };
 
@@ -69,10 +74,15 @@ export function SubmitForm() {
           <option value="" disabled>
             選択してください
           </option>
-          {EVENT_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {CATEGORY_LABELS[c]}
-            </option>
+          {PARENT_CATEGORIES.map((parent) => (
+            <optgroup key={parent} label={PARENT_LABELS[parent]}>
+              <option value={parent}>{PARENT_LABELS[parent]} (すべて)</option>
+              {SUBCATEGORIES[parent].map((sub) => (
+                <option key={sub} value={sub}>
+                  {SUBCATEGORY_LABELS[sub]}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </Select>
       </Field>

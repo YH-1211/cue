@@ -5,9 +5,15 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CATEGORY_LABELS,
-  EVENT_CATEGORIES,
+  PARENT_CATEGORIES,
+  PARENT_LABELS,
+  SUBCATEGORIES,
+  SUBCATEGORY_LABELS,
+  categoriesUnderParent,
   formatEventDateTime,
   isEventCategory,
+  isParentCategory,
+  parentOf,
   type EventCategory,
 } from "@/lib/events";
 
@@ -31,6 +37,7 @@ export default async function EventsPage({
   const { category: categoryParam } = await searchParams;
   const activeCategory =
     categoryParam && isEventCategory(categoryParam) ? categoryParam : null;
+  const activeParent = activeCategory ? parentOf(activeCategory) : null;
 
   const supabase = await createClient();
 
@@ -43,7 +50,11 @@ export default async function EventsPage({
     .limit(50);
 
   if (activeCategory) {
-    query = query.eq("category", activeCategory);
+    if (isParentCategory(activeCategory)) {
+      query = query.in("category", categoriesUnderParent(activeCategory));
+    } else {
+      query = query.eq("category", activeCategory);
+    }
   }
 
   const { data, error } = await query;
@@ -72,23 +83,43 @@ export default async function EventsPage({
         </div>
       </header>
 
-      {/* カテゴリフィルタ */}
-      <nav
-        aria-label="カテゴリで絞り込む"
-        className="mb-8 -mx-1 flex flex-wrap gap-2"
-      >
-        <CategoryPill href="/events" active={activeCategory === null}>
-          すべて
-        </CategoryPill>
-        {EVENT_CATEGORIES.map((cat) => (
-          <CategoryPill
-            key={cat}
-            href={`/events?category=${cat}`}
-            active={activeCategory === cat}
-          >
-            {CATEGORY_LABELS[cat]}
+      {/* カテゴリフィルタ (親 → サブの2階層) */}
+      <nav aria-label="カテゴリで絞り込む" className="mb-8 flex flex-col gap-2">
+        {/* 親カテゴリ */}
+        <div className="-mx-1 flex flex-wrap gap-2">
+          <CategoryPill href="/events" active={activeCategory === null}>
+            すべて
           </CategoryPill>
-        ))}
+          {PARENT_CATEGORIES.map((p) => (
+            <CategoryPill
+              key={p}
+              href={`/events?category=${p}`}
+              active={activeParent === p}
+            >
+              {PARENT_LABELS[p]}
+            </CategoryPill>
+          ))}
+        </div>
+        {/* サブカテゴリ (親を選択中のみ表示) */}
+        {activeParent && (
+          <div className="-mx-1 flex flex-wrap gap-2 border-t border-border pt-2">
+            <CategoryPill
+              href={`/events?category=${activeParent}`}
+              active={isParentCategory(activeCategory!)}
+            >
+              {PARENT_LABELS[activeParent]} (すべて)
+            </CategoryPill>
+            {SUBCATEGORIES[activeParent].map((sub) => (
+              <CategoryPill
+                key={sub}
+                href={`/events?category=${sub}`}
+                active={activeCategory === sub}
+              >
+                {SUBCATEGORY_LABELS[sub]}
+              </CategoryPill>
+            ))}
+          </div>
+        )}
       </nav>
 
       {error ? (
