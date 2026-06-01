@@ -32,12 +32,22 @@ type EventRow = {
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; area?: string }>;
 }) {
-  const { category: categoryParam } = await searchParams;
+  const { category: categoryParam, area: areaParam } = await searchParams;
   const activeCategory =
     categoryParam && isEventCategory(categoryParam) ? categoryParam : null;
   const activeParent = activeCategory ? parentOf(activeCategory) : null;
+  const activeArea = areaParam && areaParam.length > 0 ? areaParam : null;
+
+  // カテゴリピルの href にエリアを引き継ぐ
+  const catHref = (cat?: string) => {
+    const sp = new URLSearchParams();
+    if (cat) sp.set("category", cat);
+    if (activeArea) sp.set("area", activeArea);
+    const qs = sp.toString();
+    return qs ? `/events?${qs}` : "/events";
+  };
 
   const supabase = await createClient();
 
@@ -55,6 +65,9 @@ export default async function EventsPage({
     } else {
       query = query.eq("category", activeCategory);
     }
+  }
+  if (activeArea) {
+    query = query.eq("area", activeArea);
   }
 
   const { data, error } = await query;
@@ -83,17 +96,34 @@ export default async function EventsPage({
         </div>
       </header>
 
+      {/* エリア絞り込み中の表示 */}
+      {activeArea && (
+        <div className="mb-4 flex items-center gap-2 text-sm">
+          <span className="rounded-full border border-foreground bg-foreground px-3 py-1 text-xs text-background">
+            📍 {activeArea}区
+          </span>
+          <Link
+            href={
+              activeCategory ? `/events?category=${activeCategory}` : "/events"
+            }
+            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            エリア解除
+          </Link>
+        </div>
+      )}
+
       {/* カテゴリフィルタ (親 → サブの2階層) */}
       <nav aria-label="カテゴリで絞り込む" className="mb-8 flex flex-col gap-2">
         {/* 親カテゴリ */}
         <div className="-mx-1 flex flex-wrap gap-2">
-          <CategoryPill href="/events" active={activeCategory === null}>
+          <CategoryPill href={catHref()} active={activeCategory === null}>
             すべて
           </CategoryPill>
           {PARENT_CATEGORIES.map((p) => (
             <CategoryPill
               key={p}
-              href={`/events?category=${p}`}
+              href={catHref(p)}
               active={activeParent === p}
             >
               {PARENT_LABELS[p]}
@@ -104,7 +134,7 @@ export default async function EventsPage({
         {activeParent && (
           <div className="-mx-1 flex flex-wrap gap-2 border-t border-border pt-2">
             <CategoryPill
-              href={`/events?category=${activeParent}`}
+              href={catHref(activeParent)}
               active={isParentCategory(activeCategory!)}
             >
               {PARENT_LABELS[activeParent]} (すべて)
@@ -112,7 +142,7 @@ export default async function EventsPage({
             {SUBCATEGORIES[activeParent].map((sub) => (
               <CategoryPill
                 key={sub}
-                href={`/events?category=${sub}`}
+                href={catHref(sub)}
                 active={activeCategory === sub}
               >
                 {SUBCATEGORY_LABELS[sub]}

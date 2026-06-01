@@ -33,6 +33,12 @@ export async function Header() {
             検索
           </Link>
           <Link
+            href="/nearby"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            近く
+          </Link>
+          <Link
             href="/feed"
             className="hidden text-muted-foreground transition-colors hover:text-foreground sm:inline"
           >

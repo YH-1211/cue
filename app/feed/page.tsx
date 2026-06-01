@@ -15,6 +15,7 @@ import {
 } from "@/lib/events";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { LikeButton } from "./like-button";
+import { CommentSection } from "./comment-section";
 import { ShareCardButton } from "./share-card-button";
 
 const PAGE_SIZE = 20;
@@ -31,6 +32,7 @@ type FeedRow = {
   created_at: string;
   user_id: string;
   like_count: number;
+  comment_count: number;
   events: {
     id: string;
     title: string;
@@ -80,7 +82,7 @@ export default async function FeedPage({
     .from("attended_events")
     .select(
       `
-        id, memo, rating, attended_on, created_at, user_id, like_count,
+        id, memo, rating, attended_on, created_at, user_id, like_count, comment_count,
         events!inner ( id, title, category, venue_name, area, approved ),
         profiles!attended_events_user_id_fkey ( id, display_name, avatar_url ),
         attended_photos ( id, storage_path, caption )
@@ -262,18 +264,41 @@ export default async function FeedPage({
             >
               {/* ヘッダ: 投稿者 + 時刻 */}
               <div className="flex items-center gap-3">
-                <Avatar className="size-9">
-                  {author?.avatar_url && (
-                    <AvatarImage src={author.avatar_url} alt="" />
-                  )}
-                  <AvatarFallback>{initial}</AvatarFallback>
-                </Avatar>
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-semibold">{name}</span>
-                  <time className="text-xs text-muted-foreground">
-                    {formatRelativeTime(r.created_at)}
-                  </time>
-                </div>
+                {author ? (
+                  <Link
+                    href={`/users/${author.id}`}
+                    className="flex min-w-0 flex-1 items-center gap-3 transition-opacity hover:opacity-80"
+                  >
+                    <Avatar className="size-9">
+                      {author.avatar_url && (
+                        <AvatarImage src={author.avatar_url} alt="" />
+                      )}
+                      <AvatarFallback>{initial}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-semibold">
+                        {name}
+                      </span>
+                      <time className="text-xs text-muted-foreground">
+                        {formatRelativeTime(r.created_at)}
+                      </time>
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <Avatar className="size-9">
+                      <AvatarFallback>{initial}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-semibold">
+                        {name}
+                      </span>
+                      <time className="text-xs text-muted-foreground">
+                        {formatRelativeTime(r.created_at)}
+                      </time>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* イベントへのリンク */}
@@ -367,6 +392,15 @@ export default async function FeedPage({
                     </Link>
                   )}
                 </div>
+              </div>
+
+              {/* コメント */}
+              <div className="mt-3">
+                <CommentSection
+                  attendedEventId={r.id}
+                  initialCount={r.comment_count}
+                  viewerId={viewer?.id ?? null}
+                />
               </div>
             </li>
           );
