@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { WardMap } from "@/components/ward-map";
+import { EventMap, type MapMarker } from "@/components/event-map";
 import {
   AREA_COORDS,
   distanceKm,
@@ -23,6 +23,15 @@ import { fetchNearbyEvents, type NearbyEvent } from "./actions";
 
 type Coord = { lat: number; lng: number };
 
+export type MapEvent = {
+  id: string;
+  title: string;
+  area: string | null;
+  starts_at: string;
+  lat: number;
+  lng: number;
+};
+
 const RADIUS_OPTIONS = [3, 5, 8, 10, 15];
 
 function nearestArea(coord: Coord): AreaName {
@@ -39,11 +48,11 @@ function nearestArea(coord: Coord): AreaName {
 }
 
 export function NearbyClient({
-  counts,
   homeArea,
+  mapEvents,
 }: {
-  counts: Record<string, number>;
   homeArea: AreaName | null;
+  mapEvents: MapEvent[];
 }) {
   const [origin, setOrigin] = useState<Coord | null>(
     homeArea ? AREA_COORDS[homeArea] : null
@@ -59,6 +68,17 @@ export function NearbyClient({
   const [loaded, setLoaded] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+
+  const markers: MapMarker[] = useMemo(
+    () =>
+      mapEvents.map((m) => ({
+        id: m.id,
+        title: m.title,
+        lat: m.lat,
+        lng: m.lng,
+      })),
+    [mapEvents]
+  );
 
   function loadFor(
     coord: Coord,
@@ -233,7 +253,7 @@ export function NearbyClient({
       )}
 
       {/* マップ */}
-      <WardMap counts={counts} userArea={userArea} />
+      <EventMap markers={markers} origin={origin} />
 
       {/* 結果 */}
       {!origin ? (

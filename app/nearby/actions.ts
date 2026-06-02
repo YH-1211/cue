@@ -11,6 +11,8 @@ export type NearbyEvent = {
   area: string | null;
   category: EventCategory;
   cover_image_url: string | null;
+  lat: number | null;
+  lng: number | null;
 };
 
 // 近隣区名のリスト(クライアントで現在地から算出済み)を受け取り、
@@ -25,7 +27,9 @@ export async function fetchNearbyEvents(
   const supabase = await createClient();
   let query = supabase
     .from("events")
-    .select("id, title, starts_at, venue_name, area, category, cover_image_url")
+    .select(
+      "id, title, starts_at, venue_name, area, category, cover_image_url, lat, lng"
+    )
     .eq("approved", true)
     .in("area", validAreas)
     .gte("starts_at", new Date().toISOString())

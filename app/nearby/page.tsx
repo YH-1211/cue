@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { AREA_COORDS, type AreaName } from "@/lib/tokyo-areas";
-import { NearbyClient } from "./nearby-client";
+import { NearbyClient, type MapEvent } from "./nearby-client";
 
 export const metadata = { title: "近くのイベント" };
 
@@ -11,19 +11,19 @@ function isAreaName(s: string | null | undefined): s is AreaName {
 export default async function NearbyPage() {
   const supabase = await createClient();
 
-  // マップ用: 今後の承認済みイベントを区ごとに集計
+  // マップ用: 今後の承認済みイベントを座標つきで取得
   const { data: rows } = await supabase
     .from("events")
-    .select("area")
+    .select("id, title, area, starts_at, lat, lng")
     .eq("approved", true)
     .gte("starts_at", new Date().toISOString())
+    .not("lat", "is", null)
+    .not("lng", "is", null)
     .limit(1000);
 
-  const counts: Record<string, number> = {};
-  for (const r of rows ?? []) {
-    const a = (r as { area: string | null }).area;
-    if (a && a in AREA_COORDS) counts[a] = (counts[a] ?? 0) + 1;
-  }
+  const mapEvents: MapEvent[] = (rows ?? [])
+    .map((r) => r as MapEvent)
+    .filter((r) => typeof r.lat === "number" && typeof r.lng === "number");
 
   // ログインユーザーの home_area を初期値として渡す
   const {
@@ -47,7 +47,7 @@ export default async function NearbyPage() {
           現在地やホームエリアの周辺で、これから開かれるイベントを距離順に。
         </p>
       </header>
-      <NearbyClient counts={counts} homeArea={homeArea} />
+      <NearbyClient homeArea={homeArea} mapEvents={mapEvents} />
     </div>
   );
 }

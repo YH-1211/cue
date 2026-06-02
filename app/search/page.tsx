@@ -12,7 +12,7 @@ import {
 } from "@/lib/events";
 import { AREA_COORDS, type AreaName } from "@/lib/tokyo-areas";
 import { EventsFilters } from "@/app/events/filters";
-import { NearbyClient } from "@/app/nearby/nearby-client";
+import { NearbyClient, type MapEvent } from "@/app/nearby/nearby-client";
 import { SaveSearchBar } from "./save-search-bar";
 import { cn } from "@/lib/utils";
 
@@ -118,20 +118,21 @@ export default async function SearchPage({
   } = await supabase.auth.getUser();
   const loggedIn = !!user;
 
-  // 地図ビュー用: 区ごとの件数とユーザーのホームエリアを取得
-  const mapCounts: Record<string, number> = {};
+  // 地図ビュー用: 座標つきの今後のイベントとユーザーのホームエリアを取得
+  let mapEvents: MapEvent[] = [];
   let homeArea: AreaName | null = null;
   if (view === "map") {
     const { data: rows } = await supabase
       .from("events")
-      .select("area")
+      .select("id, title, area, starts_at, lat, lng")
       .eq("approved", true)
       .gte("starts_at", new Date().toISOString())
+      .not("lat", "is", null)
+      .not("lng", "is", null)
       .limit(1000);
-    for (const r of rows ?? []) {
-      const a = (r as { area: string | null }).area;
-      if (a && a in AREA_COORDS) mapCounts[a] = (mapCounts[a] ?? 0) + 1;
-    }
+    mapEvents = (rows ?? [])
+      .map((r) => r as MapEvent)
+      .filter((r) => typeof r.lat === "number" && typeof r.lng === "number");
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -243,7 +244,7 @@ export default async function SearchPage({
       </div>
 
       {view === "map" ? (
-        <NearbyClient counts={mapCounts} homeArea={homeArea} />
+        <NearbyClient homeArea={homeArea} mapEvents={mapEvents} />
       ) : (
         <SearchListView
           hasFilter={hasFilter}
