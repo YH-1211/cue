@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,11 @@ import {
   parentOf,
 } from "@/lib/events";
 import { cn } from "@/lib/utils";
+
+type Facets = {
+  categories: Record<string, number>;
+  areas: Record<string, number>;
+};
 
 // 東京の主要エリア (tokyo-areas.ts と同じ並び)
 const AREAS = [
@@ -51,8 +56,10 @@ const DATE_PRESETS = [
 
 export function EventsFilters({
   basePath = "/events",
+  facets,
 }: {
   basePath?: string;
+  facets?: Facets;
 } = {}) {
   const router = useRouter();
   const params = useSearchParams();
@@ -64,6 +71,26 @@ export function EventsFilters({
   const category = params.get("category") ?? "";
   const sort = params.get("sort") ?? "";
   const areas = (params.get("areas") ?? "").split(",").filter(Boolean);
+  const free = params.get("free") === "1";
+  const evening = params.get("evening") === "1";
+
+  // ファセット件数 (検索ページのみ渡される)
+  function catCount(value: string): number | null {
+    if (!facets) return null;
+    if (isParentCategory(value)) {
+      let sum = 0;
+      for (const [k, n] of Object.entries(facets.categories)) {
+        if (k === value || (isEventCategory(k) && parentOf(k) === value))
+          sum += n;
+      }
+      return sum;
+    }
+    return facets.categories[value] ?? 0;
+  }
+  function areaCount(value: string): number | null {
+    if (!facets) return null;
+    return facets.areas[value] ?? 0;
+  }
 
   // 検索入力のみローカル state (タイプ中の値を保持)。URL の q が変わったら入力もそれに合わせる
   const [q, setQ] = useState(urlQ);
@@ -74,12 +101,60 @@ export function EventsFilters({
     setLastSyncedQ(urlQ);
   }
 
+  // オートコンプリート候補
+  type Suggestion = {
+    id: string;
+    title: string;
+    starts_at: string;
+    area: string | null;
+  };
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggest, setShowSuggest] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const term = q.trim();
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      if (term.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+      try {
+        const res = await fetch(
+          `/api/search/suggest?q=${encodeURIComponent(term)}`,
+          { signal: ctrl.signal }
+        );
+        const json = await res.json();
+        setSuggestions(json.suggestions ?? []);
+      } catch {
+        /* abort / network: 無視 */
+      }
+    }, 200);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [q]);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+        setShowSuggest(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
   function apply(next: {
     q?: string;
     date?: string;
     category?: string;
     sort?: string;
     areas?: string[];
+    free?: boolean;
+    evening?: boolean;
   }) {
     const sp = new URLSearchParams();
     const newQ = next.q ?? q;
@@ -87,11 +162,15 @@ export function EventsFilters({
     const newCategory = next.category ?? category;
     const newSort = next.sort ?? sort;
     const newAreas = next.areas ?? areas;
+    const newFree = next.free ?? free;
+    const newEvening = next.evening ?? evening;
     if (newQ) sp.set("q", newQ);
     if (newDate) sp.set("date", newDate);
     if (newCategory) sp.set("category", newCategory);
     if (newSort) sp.set("sort", newSort);
     if (newAreas.length > 0) sp.set("areas", newAreas.join(","));
+    if (newFree) sp.set("free", "1");
+    if (newEvening) sp.set("evening", "1");
     const qs = sp.toString();
     start(() => router.push(qs ? `${basePath}?${qs}` : basePath));
   }
@@ -116,7 +195,8 @@ export function EventsFilters({
     apply({ q });
   }
 
-  const hasAny = urlQ || date || category || sort || areas.length > 0;
+  const hasAny =
+    urlQ || date || category || sort || areas.length > 0 || free || evening;
 
   const SORTS = [
     { value: "", label: "開催が近い順" },
@@ -133,12 +213,42 @@ export function EventsFilters({
     >
       {/* キーワード */}
       <form onSubmit={submitSearch} className="flex gap-2">
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="キーワードで検索 (タイトル / 説明)"
-          className="h-9"
-        />
+        <div ref={boxRef} className="relative flex-1">
+          <Input
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setShowSuggest(true);
+            }}
+            onFocus={() => setShowSuggest(true)}
+            placeholder="キーワードで検索 (少しの言葉でもOK)"
+            className="h-9"
+            autoComplete="off"
+          />
+          {showSuggest && suggestions.length > 0 && (
+            <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-card shadow-lg">
+              {suggestions.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSuggest(false);
+                      start(() => router.push(`/events/${s.id}`));
+                    }}
+                    className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted"
+                  >
+                    <span className="line-clamp-1 font-medium">{s.title}</span>
+                    {s.area && (
+                      <span className="text-xs text-muted-foreground">
+                        {s.area}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <Button type="submit" size="sm" disabled={pending}>
           検索
         </Button>
@@ -184,6 +294,25 @@ export function EventsFilters({
         </div>
       </div>
 
+      {/* クイックフィルタ */}
+      <div className="flex flex-wrap gap-1.5">
+        <PillButton
+          active={date === "weekend"}
+          onClick={() => selectDate(date === "weekend" ? "" : "weekend")}
+        >
+          今週末
+        </PillButton>
+        <PillButton active={free} onClick={() => apply({ free: !free })}>
+          無料
+        </PillButton>
+        <PillButton
+          active={evening}
+          onClick={() => apply({ evening: !evening })}
+        >
+          夜開催 (18時〜)
+        </PillButton>
+      </div>
+
       {/* カテゴリ (親 → サブの2階層) */}
       {(() => {
         const active = category && isEventCategory(category) ? category : "";
@@ -204,6 +333,7 @@ export function EventsFilters({
                     key={p}
                     active={activeParent === p}
                     onClick={() => selectCategory(p)}
+                    count={catCount(p)}
                   >
                     {PARENT_LABELS[p]}
                   </PillButton>
@@ -225,6 +355,7 @@ export function EventsFilters({
                       key={sub}
                       active={active === sub}
                       onClick={() => selectCategory(sub)}
+                      count={catCount(sub)}
                     >
                       {SUBCATEGORY_LABELS[sub]}
                     </PillButton>
@@ -247,6 +378,7 @@ export function EventsFilters({
               key={a}
               active={areas.includes(a)}
               onClick={() => toggleArea(a)}
+              count={areaCount(a)}
             >
               {a}
             </PillButton>
@@ -261,10 +393,12 @@ function PillButton({
   active,
   onClick,
   children,
+  count,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  count?: number | null;
 }) {
   return (
     <button
@@ -278,6 +412,16 @@ function PillButton({
       )}
     >
       {children}
+      {typeof count === "number" && (
+        <span
+          className={cn(
+            "ml-1 tabular-nums",
+            active ? "text-background/70" : "text-muted-foreground/60"
+          )}
+        >
+          {count}
+        </span>
+      )}
     </button>
   );
 }

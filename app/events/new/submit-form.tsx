@@ -167,15 +167,29 @@ export function SubmitForm() {
         />
       </Field>
 
-      <Field id="ticket_sale_starts_at" label="チケット発売開始（任意）">
-        <Input
-          id="ticket_sale_starts_at"
-          name="ticket_sale_starts_at"
-          type="datetime-local"
-          defaultValue={v.ticket_sale_starts_at ?? ""}
-          disabled={pending}
-        />
-      </Field>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <Field id="ticket_sale_starts_at" label="チケット発売開始（任意）">
+          <Input
+            id="ticket_sale_starts_at"
+            name="ticket_sale_starts_at"
+            type="datetime-local"
+            defaultValue={v.ticket_sale_starts_at ?? ""}
+            disabled={pending}
+          />
+        </Field>
+        <Field id="is_free" label="料金（任意）">
+          <Select
+            id="is_free"
+            name="is_free"
+            defaultValue={v.is_free ?? ""}
+            disabled={pending}
+          >
+            <option value="">不明 / 未選択</option>
+            <option value="free">無料</option>
+            <option value="paid">有料</option>
+          </Select>
+        </Field>
+      </div>
 
       <Field id="description" label="説明（任意）">
         <Textarea

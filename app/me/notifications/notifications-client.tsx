@@ -56,6 +56,19 @@ export function NotificationsClient({
     "PushManager" in window &&
     "Notification" in window;
 
+  // iOS 判定 (iPadOS は Mac を偽装するので touch も見る)
+  const isIOS =
+    mounted &&
+    typeof navigator !== "undefined" &&
+    (/iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+  const isStandalone =
+    mounted &&
+    typeof window !== "undefined" &&
+    (window.matchMedia("(display-mode: standalone)").matches ||
+      // iOS Safari 独自の standalone フラグ
+      (window.navigator as { standalone?: boolean }).standalone === true);
+
   async function ensureSwReady() {
     if (!("serviceWorker" in navigator)) throw new Error("SWが使えません");
     const reg = await navigator.serviceWorker.ready;
@@ -149,6 +162,34 @@ export function NotificationsClient({
   }
 
   if (!supported) {
+    // iOS かつ未インストール (Safari 直開き) の場合は具体的な手順を案内
+    if (isIOS && !isStandalone) {
+      return (
+        <div className="rounded-lg border border-border bg-card p-6 text-sm">
+          <p className="font-medium">📱 iPhone / iPad で通知を受け取るには</p>
+          <p className="mt-2 text-muted-foreground">
+            iOS では「ホーム画面に追加」したアプリ (PWA) からのみ通知を受け取れます
+            (iOS 16.4 以降が必要)。次の手順で追加してください。
+          </p>
+          <ol className="mt-3 list-decimal space-y-1 pl-5 text-muted-foreground">
+            <li>
+              Safari 下部の <span className="font-medium text-foreground">共有ボタン</span>{" "}
+              (□から↑) をタップ
+            </li>
+            <li>
+              <span className="font-medium text-foreground">
+                「ホーム画面に追加」
+              </span>{" "}
+              を選ぶ
+            </li>
+            <li>
+              追加された Cue アイコンから開き直し、この画面で
+              <span className="font-medium text-foreground">「通知をオン」</span>
+            </li>
+          </ol>
+        </div>
+      );
+    }
     return (
       <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
         このブラウザは Web 通知に対応していません。iOS の場合は Safari でホーム画面に追加 (PWA) した後にお試しください。

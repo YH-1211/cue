@@ -54,28 +54,41 @@ export function NearbyClient({
   );
   const [radius, setRadius] = useState(8);
   const [category, setCategory] = useState("");
+  const [sort, setSort] = useState<"distance" | "date">("distance");
   const [events, setEvents] = useState<NearbyEvent[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  function loadFor(coord: Coord, r: number, cat: string) {
+  function loadFor(
+    coord: Coord,
+    r: number,
+    cat: string,
+    sortBy: "distance" | "date" = sort
+  ) {
     const areas = nearbyAreas(coord, r).map((a) => a.area);
     start(async () => {
       const res = await fetchNearbyEvents(areas, cat || undefined);
-      // 各イベントを現在地からの距離で並べ替え
-      const withDist = (res.events ?? [])
-        .map((e) => ({
-          e,
-          km:
-            e.area && e.area in AREA_COORDS
-              ? distanceKm(coord, AREA_COORDS[e.area as AreaName])
-              : Infinity,
-        }))
-        .sort((a, b) => a.km - b.km);
+      const withDist = (res.events ?? []).map((e) => ({
+        e,
+        km:
+          e.area && e.area in AREA_COORDS
+            ? distanceKm(coord, AREA_COORDS[e.area as AreaName])
+            : Infinity,
+      }));
+      withDist.sort((a, b) =>
+        sortBy === "date"
+          ? a.e.starts_at.localeCompare(b.e.starts_at)
+          : a.km - b.km
+      );
       setEvents(withDist.map((x) => x.e));
       setLoaded(true);
     });
+  }
+
+  function onSort(s: "distance" | "date") {
+    setSort(s);
+    if (origin) loadFor(origin, radius, category, s);
   }
 
   function useGps() {
@@ -174,6 +187,18 @@ export function NearbyClient({
                 ))}
               </Select>
             </label>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              並び
+              <Pill
+                active={sort === "distance"}
+                onClick={() => onSort("distance")}
+              >
+                近い順
+              </Pill>
+              <Pill active={sort === "date"} onClick={() => onSort("date")}>
+                開催が近い順
+              </Pill>
+            </div>
           </div>
         )}
 

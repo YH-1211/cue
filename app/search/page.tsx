@@ -13,6 +13,7 @@ import {
 import { AREA_COORDS, type AreaName } from "@/lib/tokyo-areas";
 import { EventsFilters } from "@/app/events/filters";
 import { NearbyClient } from "@/app/nearby/nearby-client";
+import { SaveSearchBar } from "./save-search-bar";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "検索" };
@@ -38,6 +39,13 @@ type SearchParams = {
   areas?: string;
   sort?: string;
   view?: string;
+  free?: string;
+  evening?: string;
+};
+
+type Facets = {
+  categories: Record<string, number>;
+  areas: Record<string, number>;
 };
 
 function resolveDateRange(preset: string | undefined): {
@@ -87,6 +95,8 @@ export default async function SearchPage({
   const datePreset = sp.date ?? "";
   const sort = sp.sort ?? "";
   const view = sp.view === "map" ? "map" : "list";
+  const freeOnly = sp.free === "1";
+  const eveningOnly = sp.evening === "1";
   const activeCategory =
     sp.category && isEventCategory(sp.category) ? sp.category : null;
   const areas = (sp.areas ?? "")
@@ -95,9 +105,18 @@ export default async function SearchPage({
     .filter(Boolean);
 
   const hasFilter =
-    !!q || !!datePreset || !!activeCategory || areas.length > 0;
+    !!q ||
+    !!datePreset ||
+    !!activeCategory ||
+    areas.length > 0 ||
+    freeOnly ||
+    eveningOnly;
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const loggedIn = !!user;
 
   // 地図ビュー用: 区ごとの件数とユーザーのホームエリアを取得
   const mapCounts: Record<string, number> = {};
@@ -113,9 +132,6 @@ export default async function SearchPage({
       const a = (r as { area: string | null }).area;
       if (a && a in AREA_COORDS) mapCounts[a] = (mapCounts[a] ?? 0) + 1;
     }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (user) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -128,43 +144,49 @@ export default async function SearchPage({
 
   let events: EventRow[] = [];
   let errorMessage: string | null = null;
+  let facets: Facets = { categories: {}, areas: {} };
 
   // 条件が何も無いときはクエリしない (一覧目的なら /events へ誘導)
   if (view === "list" && hasFilter) {
     const { from: dateFrom, to: dateTo } = resolveDateRange(datePreset);
     const baseFrom = dateFrom ?? new Date().toISOString();
 
-    let query = supabase
-      .from("events")
-      .select(
-        "id, title, starts_at, venue_name, area, category, cover_image_url"
-      )
-      .eq("approved", true)
-      .gte("starts_at", baseFrom)
-      .limit(50);
+    // 親カテゴリは配下のサブカテゴリ全てに展開して RPC へ渡す
+    const categoryList = activeCategory
+      ? isParentCategory(activeCategory)
+        ? categoriesUnderParent(activeCategory)
+        : [activeCategory]
+      : [];
 
-    // 並び替え: 新着順は created_at、それ以外は開催が近い順。
-    // 人気順は開催が近い順で取得してから保存数で並べ替える。
-    query =
-      sort === "new"
-        ? query.order("created_at", { ascending: false })
-        : query.order("starts_at", { ascending: true });
+    // 並び替え: 新着順は new、キーワード有り(既定)は関連度順、それ以外は開催が近い順。
+    // 人気順は近い順で取得してから保存数で並べ替える。
+    const rpcSort =
+      sort === "new" ? "new" : q && sort !== "popular" ? "relevant" : "soon";
 
-    if (dateTo) query = query.lt("starts_at", dateTo);
-    if (activeCategory) {
-      query = isParentCategory(activeCategory)
-        ? query.in("category", categoriesUnderParent(activeCategory))
-        : query.eq("category", activeCategory);
-    }
-    if (areas.length > 0) query = query.in("area", areas);
-    if (q) {
-      const safe = q.replace(/[%,]/g, " ");
-      query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`);
-    }
+    const [{ data, error }, { data: facetData }] = await Promise.all([
+      supabase.rpc("search_events", {
+        p_q: q || null,
+        p_categories: categoryList,
+        p_areas: areas,
+        p_date_from: baseFrom,
+        p_date_to: dateTo ?? null,
+        p_free_only: freeOnly,
+        p_evening_only: eveningOnly,
+        p_sort: rpcSort,
+        p_limit: 50,
+      }),
+      supabase.rpc("search_event_facets", {
+        p_q: q || null,
+        p_date_from: baseFrom,
+        p_date_to: dateTo ?? null,
+        p_free_only: freeOnly,
+        p_evening_only: eveningOnly,
+      }),
+    ]);
 
-    const { data, error } = await query;
     events = (data ?? []) as EventRow[];
     errorMessage = error?.message ?? null;
+    if (facetData) facets = facetData as Facets;
 
     // 人気順: 取得済みイベントの「行きたい」保存数で降順に並べ替える
     if (sort === "popular" && events.length > 0) {
@@ -227,6 +249,8 @@ export default async function SearchPage({
           hasFilter={hasFilter}
           errorMessage={errorMessage}
           events={events}
+          facets={facets}
+          loggedIn={loggedIn}
         />
       )}
     </div>
@@ -237,16 +261,26 @@ function SearchListView({
   hasFilter,
   errorMessage,
   events,
+  facets,
+  loggedIn,
 }: {
   hasFilter: boolean;
   errorMessage: string | null;
   events: EventRow[];
+  facets: Facets;
+  loggedIn: boolean;
 }) {
   return (
     <>
-      <div className="mb-8">
-        <EventsFilters basePath="/search" />
+      <div className="mb-4">
+        <EventsFilters basePath="/search" facets={facets} />
       </div>
+
+      {hasFilter && (
+        <div className="mb-6">
+          <SaveSearchBar loggedIn={loggedIn} />
+        </div>
+      )}
 
       {!hasFilter ? (
         <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">

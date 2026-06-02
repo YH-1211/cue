@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 
 type Mode = "android" | "ios" | null;
 const DISMISS_KEY = "cue:pwaPromptDismissedAt";
+const SESSION_KEY = "cue:pwaPromptShown";
 const DISMISS_DAYS = 7;
+const IOS_DELAY_MS = 8000;
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -26,7 +28,18 @@ function isStandalone(): boolean {
 
 function isIos(): boolean {
   if (typeof navigator === "undefined") return false;
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+  return (
+    /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+// iOS で「ホーム画面に追加」が使えるのは Safari のみ。
+// Chrome/Firefox 等 (CriOS/FxiOS/EdgiOS) では案内しても追加できないので出さない。
+function isIosSafari(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return isIos() && !/crios|fxios|edgios|opios/i.test(ua);
 }
 
 function recentlyDismissed(): boolean {
@@ -41,26 +54,50 @@ function recentlyDismissed(): boolean {
   }
 }
 
+// 同一セッション中は1回だけ表示 (リロードや画面遷移での連続表示を防ぐ)
+function shownThisSession(): boolean {
+  try {
+    return sessionStorage.getItem(SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function markShownThisSession() {
+  try {
+    sessionStorage.setItem(SESSION_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
+
 export function PWAInstallBanner() {
   const [mode, setMode] = useState<Mode>(null);
+  const [visible, setVisible] = useState(false);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(
     null
   );
 
+  function reveal(next: Mode) {
+    setMode(next);
+    markShownThisSession();
+    // 次フレームで表示状態にしてスライドインさせる
+    requestAnimationFrame(() => setVisible(true));
+  }
+
   useEffect(() => {
-    if (isStandalone() || recentlyDismissed()) return;
+    if (isStandalone() || recentlyDismissed() || shownThisSession()) return;
 
     const onBeforeInstall = (e: Event) => {
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);
-      setMode("android");
+      reveal("android");
     };
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
 
-    // iOS 用 (5秒遅延 — 初期表示の邪魔を避ける)
+    // iOS Safari 用 (遅延 — 初期表示の邪魔を避ける)
     let iosTimer: ReturnType<typeof setTimeout> | null = null;
-    if (isIos()) {
-      iosTimer = setTimeout(() => setMode("ios"), 5000);
+    if (isIosSafari()) {
+      iosTimer = setTimeout(() => reveal("ios"), IOS_DELAY_MS);
     }
 
     return () => {
@@ -75,7 +112,9 @@ export function PWAInstallBanner() {
     } catch {
       // ignore
     }
-    setMode(null);
+    setVisible(false);
+    // アニメーション後にアンマウント
+    setTimeout(() => setMode(null), 200);
   };
 
   const install = async () => {
@@ -83,7 +122,8 @@ export function PWAInstallBanner() {
     await deferred.prompt();
     const choice = await deferred.userChoice;
     if (choice.outcome === "accepted") {
-      setMode(null);
+      setVisible(false);
+      setTimeout(() => setMode(null), 200);
     } else {
       dismiss();
     }
@@ -95,7 +135,12 @@ export function PWAInstallBanner() {
     <div
       role="dialog"
       aria-label="アプリのインストール"
-      className="fixed inset-x-0 z-50 mx-auto max-w-md px-4"
+      className={
+        "fixed inset-x-0 z-50 mx-auto max-w-md px-4 transition-all duration-200 " +
+        (visible
+          ? "translate-y-0 opacity-100"
+          : "pointer-events-none translate-y-3 opacity-0")
+      }
       // ボトムナビ (h-16) の上に表示
       style={{
         bottom: "calc(env(safe-area-inset-bottom) + 72px)",

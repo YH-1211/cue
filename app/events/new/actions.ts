@@ -42,6 +42,9 @@ export async function submitEvent(
   const officialUrl = readString(formData, "official_url");
   const coverImageUrl = readString(formData, "cover_image_url");
   const ticketSaleStartsAt = readString(formData, "ticket_sale_starts_at");
+  const isFreeRaw = readString(formData, "is_free");
+  const isFree =
+    isFreeRaw === "free" ? true : isFreeRaw === "paid" ? false : null;
 
   const values = {
     title,
@@ -55,6 +58,7 @@ export async function submitEvent(
     official_url: officialUrl,
     cover_image_url: coverImageUrl,
     ticket_sale_starts_at: ticketSaleStartsAt,
+    is_free: isFreeRaw,
   };
 
   if (!title) {
@@ -164,6 +168,7 @@ export async function submitEvent(
       cover_image_url: coverImageUrl || null,
       official_url: officialUrl,
       ticket_sale_starts_at: ticketSaleIso,
+      is_free: isFree,
       source_type: "user",
       source_id: sourceId,
       submitted_by: user.id,

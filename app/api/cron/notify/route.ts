@@ -80,6 +80,7 @@ export async function GET(req: NextRequest) {
     ticket_now: 0,
     interest_weekly: 0,
     nearby_match: 0,
+    saved_search: 0,
   };
 
   try {
@@ -143,6 +144,12 @@ export async function GET(req: NextRequest) {
   if (now.getHours() === 9) {
     result.nearby_match = await sendNearbyMatch(admin);
   }
+
+  // ============================================
+  // 6) 保存した検索の新着マッチ (毎時チェック)
+  //    last_notified_at 以降に作られた、条件に合う新着イベントを通知
+  // ============================================
+  result.saved_search = await sendSavedSearchMatches(admin);
 
     await logCronRun(admin, {
       startedAt,
@@ -479,6 +486,116 @@ async function sendInterestWeekly(
       await admin
         .from("notification_log")
         .insert({ user_id: u.id, kind: "interest_weekly", event_id: null });
+      sent += 1;
+    }
+  }
+  return sent;
+}
+
+// =====================================================
+// 保存した検索の新着マッチ (毎時)
+//   saved_searches の条件に合う、last_notified_at 以降に作成された新着を通知
+// =====================================================
+type SavedSearchRow = {
+  id: string;
+  user_id: string;
+  label: string;
+  q: string | null;
+  categories: string[] | null;
+  areas: string[] | null;
+  free_only: boolean | null;
+  evening_only: boolean | null;
+  last_notified_at: string | null;
+  created_at: string;
+};
+
+async function sendSavedSearchMatches(
+  admin: ReturnType<typeof createAdminClient>
+) {
+  const { data: searches, error } = await admin
+    .from("saved_searches")
+    .select(
+      "id, user_id, label, q, categories, areas, free_only, evening_only, last_notified_at, created_at"
+    )
+    .eq("notify", true);
+
+  if (error || !searches || searches.length === 0) return 0;
+
+  const nowIso = new Date().toISOString();
+  let sent = 0;
+
+  for (const s of searches as SavedSearchRow[]) {
+    // 静音時間チェック
+    const { data: profile } = await admin
+      .from("profiles")
+      .select(
+        "notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end"
+      )
+      .eq("id", s.user_id)
+      .maybeSingle();
+    if (isQuietNow(profile as unknown as QuietPrefs, new Date())) continue;
+
+    const since = s.last_notified_at ?? s.created_at;
+
+    let query = admin
+      .from("events")
+      .select("id, title, category, area, starts_at, description")
+      .eq("approved", true)
+      .gt("created_at", since)
+      .gte("starts_at", nowIso)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (s.categories && s.categories.length > 0) {
+      query = query.in("category", s.categories);
+    }
+    if (s.areas && s.areas.length > 0) {
+      query = query.in("area", s.areas);
+    }
+    if (s.free_only) query = query.eq("is_free", true);
+    if (s.q && s.q.trim()) {
+      const safe = s.q.replace(/[%,]/g, " ");
+      query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`);
+    }
+
+    const { data: events } = await query;
+    let matches = events ?? [];
+
+    // 夜開催フィルタは JS 側で (JST 18時以降)
+    if (s.evening_only) {
+      matches = matches.filter((e) => {
+        const jstHour = (new Date(e.starts_at).getUTCHours() + 9) % 24;
+        return jstHour >= 18;
+      });
+    }
+
+    if (matches.length === 0) {
+      // 新着が無くても last_notified_at は進めておく (次回の窓を狭める)
+      await admin
+        .from("saved_searches")
+        .update({ last_notified_at: nowIso })
+        .eq("id", s.id);
+      continue;
+    }
+
+    const top = matches[0];
+    const more = matches.length - 1;
+    const params = new URLSearchParams();
+    if (s.q) params.set("q", s.q);
+    const ok = await sendPushToUser(admin, s.user_id, {
+      title: `保存した検索「${s.label}」に新着 (${matches.length}件)`,
+      body:
+        more > 0
+          ? `${CATEGORY_LABELS[top.category as EventCategory]} ${top.title} ほか ${more} 件`
+          : `${CATEGORY_LABELS[top.category as EventCategory]} ${top.title}`,
+      url: params.toString() ? `/search?${params.toString()}` : "/search",
+      tag: `saved_search:${s.id}`,
+    });
+    if (ok > 0) {
+      await admin
+        .from("saved_searches")
+        .update({ last_notified_at: nowIso })
+        .eq("id", s.id);
       sent += 1;
     }
   }

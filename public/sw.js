@@ -1,6 +1,9 @@
 // Cue Service Worker
 // バージョン更新時に CACHE_NAME を変えると古いキャッシュが自動削除される
-const CACHE_NAME = "cue-v2";
+const CACHE_NAME = "cue-v3";
+// 訪問済みページ (イベント一覧/詳細/保存済みなど) のオフライン閲覧用ランタイムキャッシュ
+const PAGE_CACHE = "cue-pages-v1";
+const PAGE_CACHE_LIMIT = 40;
 const OFFLINE_URL = "/offline.html";
 
 // プリキャッシュ: オフライン用ページとアイコン
@@ -20,17 +23,27 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  const keep = [CACHE_NAME, PAGE_CACHE];
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
         Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+          keys.filter((k) => !keep.includes(k)).map((k) => caches.delete(k))
         )
       )
       .then(() => self.clients.claim())
   );
 });
+
+// ページキャッシュが増えすぎないよう古いものから削除 (FIFO)
+async function trimPageCache() {
+  const cache = await caches.open(PAGE_CACHE);
+  const keys = await cache.keys();
+  if (keys.length > PAGE_CACHE_LIMIT) {
+    await cache.delete(keys[0]);
+  }
+}
 
 self.addEventListener("fetch", (event) => {
   const req = event.request;
@@ -40,12 +53,28 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ナビゲーション (HTML) はネット優先 → 失敗時オフラインページ
+  // ナビゲーション (HTML) はネット優先。
+  // 成功時はページキャッシュに保存し、オフライン時は
+  //   1) 同じURLのキャッシュ済みページ → 2) offline.html の順にフォールバック。
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req).catch(() =>
-        caches.match(OFFLINE_URL).then((r) => r || new Response("offline"))
-      )
+      fetch(req)
+        .then((res) => {
+          if (res.ok && res.type === "basic") {
+            const copy = res.clone();
+            caches.open(PAGE_CACHE).then((c) => {
+              c.put(req, copy);
+              trimPageCache();
+            });
+          }
+          return res;
+        })
+        .catch(async () => {
+          const cached = await caches.match(req, { ignoreSearch: false });
+          if (cached) return cached;
+          const offline = await caches.match(OFFLINE_URL);
+          return offline || new Response("offline");
+        })
     );
     return;
   }
