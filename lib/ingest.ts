@@ -4,7 +4,9 @@
 // - 将来 JSON / iCal を追加可能
 
 import Parser from "rss-parser";
-import ical from "node-ical";
+// node-ical はトップレベルで読み込むとビルド時 (page data 収集) に
+// 依存先が落ちるため、ingestICal 内で動的 import する。型のみここで取り込む。
+import type ICal from "node-ical";
 import type { EventCategory } from "@/lib/events";
 import type { createAdminClient } from "@/utils/supabase/admin";
 
@@ -110,13 +112,15 @@ async function ingestICal(admin: Admin, src: IngestSource): Promise<number> {
     throw new Error("ical ソースは target_table=events のみ対応です");
   }
 
+  const ical = (await import("node-ical")).default;
+
   // options 付き fromURL は callback オーバーロード扱いで戻り型が void になるため
   // Promise<CalendarResponse> を明示する
   const data = (await (
     ical.async.fromURL as (
       url: string,
       options: { headers: Record<string, string> }
-    ) => Promise<ical.CalendarResponse>
+    ) => Promise<ICal.CalendarResponse>
   )(src.url, { headers: { "User-Agent": USER_AGENT } }));
 
   const includeRe = src.include_pattern ? safeRegex(src.include_pattern) : null;
@@ -142,7 +146,7 @@ async function ingestICal(admin: Admin, src: IngestSource): Promise<number> {
   for (const key of Object.keys(data)) {
     const comp = data[key];
     if (!comp || comp.type !== "VEVENT") continue;
-    const ev = comp as ical.VEvent;
+    const ev = comp as ICal.VEvent;
 
     const title = icalText(ev.summary).trim();
     if (!title) continue;
