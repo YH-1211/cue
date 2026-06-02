@@ -4,6 +4,7 @@
 // - 将来 JSON / iCal を追加可能
 
 import Parser from "rss-parser";
+import ical from "node-ical";
 import type { EventCategory } from "@/lib/events";
 import type { createAdminClient } from "@/utils/supabase/admin";
 
@@ -30,8 +31,9 @@ export async function ingestSource(admin: Admin, src: IngestSource): Promise<num
     case "rss":
     case "atom":
       return ingestFeed(admin, src);
-    case "json":
     case "ical":
+      return ingestICal(admin, src);
+    case "json":
       // 将来実装。現状は no-op で 0 件扱い。
       throw new Error(`kind "${src.kind}" は未実装です`);
     default:
@@ -79,6 +81,131 @@ async function ingestFeed(admin: Admin, src: IngestSource): Promise<number> {
       const ok = await upsertEvent(admin, src, item, title, link, date);
       if (ok) upserted += 1;
     }
+  }
+  return upserted;
+}
+
+// =====================================================
+// iCal (.ics) 取り込み
+// VEVENT の DTSTART を「開催日時」として扱う。記事フィードと違い構造化された
+// 開催日が取れるので events 向き。RRULE (繰り返し) は node-ical の
+// expandRecurringEvent で今後1年分の発生回に展開する。
+// =====================================================
+const ICAL_HORIZON_DAYS = 365;
+const ICAL_PAST_GRACE_MS = 24 * 60 * 60 * 1000; // 開催中/当日扱いとして過去1日まで許容
+
+// ParameterValue (string | {val} | {params}) を素の文字列に均す
+function icalText(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v && typeof v === "object" && "val" in v) {
+    const val = (v as { val?: unknown }).val;
+    return typeof val === "string" ? val : "";
+  }
+  return "";
+}
+
+async function ingestICal(admin: Admin, src: IngestSource): Promise<number> {
+  // events 専用 (news_items には開催日の概念が無いため非対応)
+  if (src.target_table !== "events") {
+    throw new Error("ical ソースは target_table=events のみ対応です");
+  }
+
+  // options 付き fromURL は callback オーバーロード扱いで戻り型が void になるため
+  // Promise<CalendarResponse> を明示する
+  const data = (await (
+    ical.async.fromURL as (
+      url: string,
+      options: { headers: Record<string, string> }
+    ) => Promise<ical.CalendarResponse>
+  )(src.url, { headers: { "User-Agent": USER_AGENT } }));
+
+  const includeRe = src.include_pattern ? safeRegex(src.include_pattern) : null;
+  const excludeRe = src.exclude_pattern ? safeRegex(src.exclude_pattern) : null;
+
+  const now = Date.now();
+  const from = new Date(now - ICAL_PAST_GRACE_MS);
+  const to = new Date(now + ICAL_HORIZON_DAYS * 24 * 60 * 60 * 1000);
+
+  // (title, start, end) を集めてから upsert。重複 (同 uid + 同開催日) は除く。
+  type Occurrence = {
+    sourceId: string;
+    title: string;
+    description: string | null;
+    startsAt: Date;
+    endsAt: Date | null;
+    venue: string | null;
+    url: string | null;
+  };
+  const occurrences: Occurrence[] = [];
+  const seen = new Set<string>();
+
+  for (const key of Object.keys(data)) {
+    const comp = data[key];
+    if (!comp || comp.type !== "VEVENT") continue;
+    const ev = comp as ical.VEvent;
+
+    const title = icalText(ev.summary).trim();
+    if (!title) continue;
+    if (excludeRe && excludeRe.test(title)) continue;
+    if (includeRe && !includeRe.test(title)) continue;
+
+    const description = icalText(ev.description).slice(0, 2000) || null;
+    const venue = icalText(ev.location).trim() || null;
+    const url = icalText((ev as { url?: unknown }).url).trim() || null;
+
+    // 発生回を列挙 (繰り返しは展開、単発はそのまま1件)
+    const instances: { start: Date; end: Date | null }[] = [];
+    if (ev.rrule) {
+      try {
+        for (const inst of ical.expandRecurringEvent(ev, { from, to })) {
+          instances.push({
+            start: new Date(inst.start),
+            end: inst.end ? new Date(inst.end) : null,
+          });
+        }
+      } catch {
+        // 展開失敗時はベースの開始日だけ拾う
+        if (ev.start) instances.push({ start: new Date(ev.start), end: ev.end ? new Date(ev.end) : null });
+      }
+    } else if (ev.start) {
+      instances.push({ start: new Date(ev.start), end: ev.end ? new Date(ev.end) : null });
+    }
+
+    for (const { start, end } of instances) {
+      if (Number.isNaN(start.getTime())) continue;
+      if (start.getTime() < from.getTime() || start.getTime() > to.getTime()) continue;
+      // 繰り返しは uid だけだと衝突するので開催日時を付ける
+      const baseId = ev.uid || url || `${src.id}:${title}`;
+      const sourceId = ev.rrule ? `${baseId}@${start.toISOString()}` : baseId;
+      if (seen.has(sourceId)) continue;
+      seen.add(sourceId);
+      occurrences.push({ sourceId, title, description, startsAt: start, endsAt: end, venue, url });
+    }
+  }
+
+  let upserted = 0;
+  for (const occ of occurrences) {
+    const row = {
+      title: occ.title.slice(0, 500),
+      description: occ.description,
+      starts_at: occ.startsAt.toISOString(),
+      ends_at: occ.endsAt ? occ.endsAt.toISOString() : null,
+      venue_name: occ.venue,
+      official_url: occ.url,
+      category: src.category_default,
+      area: src.area_default,
+      source_type: "ical" as const,
+      source_id: occ.sourceId,
+      approved: src.auto_approve,
+    };
+    const { error } = await admin
+      .from("events")
+      .upsert(row, { onConflict: "source_type,source_id", ignoreDuplicates: false });
+    if (error) {
+      console.warn(`[ingest:ical] upsert failed: ${src.name} / ${occ.sourceId}`, error.message);
+      continue;
+    }
+    upserted += 1;
   }
   return upserted;
 }
