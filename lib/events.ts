@@ -10,6 +10,7 @@ export const PARENT_CATEGORIES = [
   "seasonal",
   "film",
   "learning",
+  "sports",
 ] as const;
 
 export type ParentCategory = (typeof PARENT_CATEGORIES)[number];
@@ -47,6 +48,13 @@ export const SUBCATEGORIES = {
     "learning_tech",
     "learning_family",
   ],
+  sports: [
+    "sports_baseball",
+    "sports_soccer",
+    "sports_basketball",
+    "sports_sumo",
+    "sports_marathon",
+  ],
 } as const satisfies Record<ParentCategory, readonly string[]>;
 
 // 全カテゴリー (親 + サブ)。DB enum と一致する。
@@ -67,6 +75,7 @@ export const PARENT_LABELS: Record<ParentCategory, string> = {
   seasonal: "季節",
   film: "映像",
   learning: "学び",
+  sports: "スポーツ",
 };
 
 // サブカテゴリーラベル
@@ -104,6 +113,11 @@ export const SUBCATEGORY_LABELS: Record<string, string> = {
   learning_workshop: "ワークショップ",
   learning_tech: "テック・ビジネス",
   learning_family: "子ども・ファミリー",
+  sports_baseball: "野球",
+  sports_soccer: "サッカー",
+  sports_basketball: "バスケ",
+  sports_sumo: "相撲",
+  sports_marathon: "マラソン・ラン",
 };
 
 // 全カテゴリーのラベル (親 + サブ)。バッジ表示等で使う。

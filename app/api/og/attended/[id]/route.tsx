@@ -20,6 +20,7 @@ const CATEGORY_COLOR: Record<ParentCategory, string> = {
   seasonal: "#06b6d4",
   film: "#3b82f6",
   learning: "#14b8a6",
+  sports: "#f97316",
 };
 
 function formatDateJp(iso: string): string {
