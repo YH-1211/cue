@@ -10,9 +10,16 @@ import {
   isParentCategory,
   type EventCategory,
 } from "@/lib/events";
+import { AREA_COORDS, type AreaName } from "@/lib/tokyo-areas";
 import { EventsFilters } from "@/app/events/filters";
+import { NearbyClient } from "@/app/nearby/nearby-client";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "検索" };
+
+function isAreaName(s: string | null | undefined): s is AreaName {
+  return !!s && s in AREA_COORDS;
+}
 
 type EventRow = {
   id: string;
@@ -30,6 +37,7 @@ type SearchParams = {
   category?: string;
   areas?: string;
   sort?: string;
+  view?: string;
 };
 
 function resolveDateRange(preset: string | undefined): {
@@ -78,6 +86,7 @@ export default async function SearchPage({
   const q = (sp.q ?? "").trim();
   const datePreset = sp.date ?? "";
   const sort = sp.sort ?? "";
+  const view = sp.view === "map" ? "map" : "list";
   const activeCategory =
     sp.category && isEventCategory(sp.category) ? sp.category : null;
   const areas = (sp.areas ?? "")
@@ -90,11 +99,38 @@ export default async function SearchPage({
 
   const supabase = await createClient();
 
+  // 地図ビュー用: 区ごとの件数とユーザーのホームエリアを取得
+  const mapCounts: Record<string, number> = {};
+  let homeArea: AreaName | null = null;
+  if (view === "map") {
+    const { data: rows } = await supabase
+      .from("events")
+      .select("area")
+      .eq("approved", true)
+      .gte("starts_at", new Date().toISOString())
+      .limit(1000);
+    for (const r of rows ?? []) {
+      const a = (r as { area: string | null }).area;
+      if (a && a in AREA_COORDS) mapCounts[a] = (mapCounts[a] ?? 0) + 1;
+    }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("home_area")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (isAreaName(profile?.home_area)) homeArea = profile.home_area;
+    }
+  }
+
   let events: EventRow[] = [];
   let errorMessage: string | null = null;
 
   // 条件が何も無いときはクエリしない (一覧目的なら /events へ誘導)
-  if (hasFilter) {
+  if (view === "list" && hasFilter) {
     const { from: dateFrom, to: dateTo } = resolveDateRange(datePreset);
     const baseFrom = dateFrom ?? new Date().toISOString();
 
@@ -154,10 +190,60 @@ export default async function SearchPage({
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">検索</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          キーワード・日付・カテゴリ・エリアで絞り込めます。
+          キーワード・日付・カテゴリで絞り込むか、地図で近くを探せます。
         </p>
       </header>
 
+      {/* 表示切り替え: リスト / 地図 */}
+      <div className="mb-6 inline-flex rounded-lg border border-border bg-card p-1 text-sm">
+        <Link
+          href="/search"
+          className={cn(
+            "rounded-md px-4 py-1.5 transition-colors",
+            view === "list"
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          リストで絞り込み
+        </Link>
+        <Link
+          href="/search?view=map"
+          className={cn(
+            "rounded-md px-4 py-1.5 transition-colors",
+            view === "map"
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          地図で近くを探す
+        </Link>
+      </div>
+
+      {view === "map" ? (
+        <NearbyClient counts={mapCounts} homeArea={homeArea} />
+      ) : (
+        <SearchListView
+          hasFilter={hasFilter}
+          errorMessage={errorMessage}
+          events={events}
+        />
+      )}
+    </div>
+  );
+}
+
+function SearchListView({
+  hasFilter,
+  errorMessage,
+  events,
+}: {
+  hasFilter: boolean;
+  errorMessage: string | null;
+  events: EventRow[];
+}) {
+  return (
+    <>
       <div className="mb-8">
         <EventsFilters basePath="/search" />
       </div>
@@ -233,6 +319,6 @@ export default async function SearchPage({
           </ul>
         </>
       )}
-    </div>
+    </>
   );
 }

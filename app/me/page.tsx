@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isAdmin } from "@/lib/admin";
-import { signOut } from "@/app/login/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { RankBadge } from "@/components/rank-badge";
+import { BackButton } from "@/components/back-button";
+import { SettingsMenu } from "./settings-menu";
 import { rankFor, nextRank } from "@/lib/rank";
 import {
   CATEGORY_LABELS,
@@ -177,6 +178,9 @@ export default async function MePage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-12">
+      <nav className="mb-4 text-sm">
+        <BackButton fallbackHref="/" label="戻る" />
+      </nav>
       <header className="flex items-center gap-4">
         <Avatar className="size-16">
           {profile?.avatar_url && (
@@ -205,11 +209,14 @@ export default async function MePage() {
             </Link>
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end rounded-lg border border-border bg-card px-3 py-2">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            pt
-          </span>
-          <span className="text-xl font-bold tabular-nums">{points}</span>
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="flex flex-col items-end rounded-lg border border-border bg-card px-3 py-2">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              pt
+            </span>
+            <span className="text-xl font-bold tabular-nums">{points}</span>
+          </div>
+          <SettingsMenu admin={admin} pendingCount={pendingCount} />
         </div>
       </header>
 
@@ -488,150 +495,30 @@ export default async function MePage() {
 
       <Separator className="my-8" />
 
-      <section className="grid gap-4 sm:grid-cols-2">
-        <Link
-          href="/me/interests"
-          className="group rounded-lg border border-border bg-card p-5 transition-colors hover:bg-muted"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">興味タグ</h2>
-            <span className="text-xs text-muted-foreground group-hover:text-foreground">
-              編集 →
-            </span>
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">興味タグ</h2>
+          <Link
+            href="/me/interests"
+            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            編集 →
+          </Link>
+        </div>
+        {interestCategories.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            好きなジャンルを設定すると、ホームで優先表示されます。
           </div>
-          {interestCategories.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">
-              好きなジャンルを設定すると、ホームで優先表示されます。
-            </p>
-          ) : (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {interestCategories.map((c) => (
-                <Badge key={c} variant="secondary" className="text-xs">
-                  {CATEGORY_LABELS[c]}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </Link>
-        <Link
-          href="/me/notifications"
-          className="group rounded-lg border border-border bg-card p-5 transition-colors hover:bg-muted"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">通知設定</h2>
-            <span className="text-xs text-muted-foreground group-hover:text-foreground">
-              設定 →
-            </span>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {interestCategories.map((c) => (
+              <Badge key={c} variant="secondary" className="text-xs">
+                {CATEGORY_LABELS[c]}
+              </Badge>
+            ))}
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            開催リマインダーや興味マッチの新着を通知します。
-          </p>
-        </Link>
-        <Link
-          href="/me/follows"
-          className="group rounded-lg border border-border bg-card p-5 transition-colors hover:bg-muted"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">フォロー</h2>
-            <span className="text-xs text-muted-foreground group-hover:text-foreground">
-              一覧 →
-            </span>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            フォロー中のユーザーとフォロワーを確認できます。
-          </p>
-        </Link>
-        <Link
-          href="/nearby"
-          className="group rounded-lg border border-border bg-card p-5 transition-colors hover:bg-muted"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">📍 近くのイベント</h2>
-            <span className="text-xs text-muted-foreground group-hover:text-foreground">
-              探す →
-            </span>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            現在地やホームエリアの周辺で開催されるイベントを距離順に探せます。
-          </p>
-        </Link>
-        {admin && (
-          <>
-            <Link
-              href="/admin/moderation"
-              className="group rounded-lg border border-amber-500/40 bg-amber-500/5 p-5 transition-colors hover:bg-amber-500/10"
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">⚙ モデレーション</h2>
-                {pendingCount > 0 ? (
-                  <Badge variant="default" className="text-xs">
-                    {pendingCount}
-                  </Badge>
-                ) : (
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground">
-                    管理 →
-                  </span>
-                )}
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {pendingCount > 0
-                  ? `${pendingCount} 件の未承認イベントを確認できます。`
-                  : "未承認のイベントはありません。"}
-              </p>
-            </Link>
-            <Link
-              href="/admin/sources"
-              className="group rounded-lg border border-amber-500/40 bg-amber-500/5 p-5 transition-colors hover:bg-amber-500/10"
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">🔌 取り込みソース</h2>
-                <span className="text-xs text-muted-foreground group-hover:text-foreground">
-                  管理 →
-                </span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                RSS/Atom フィードの追加・有効/無効・即時実行ができます。
-              </p>
-            </Link>
-            <Link
-              href="/admin/news"
-              className="group rounded-lg border border-amber-500/40 bg-amber-500/5 p-5 transition-colors hover:bg-amber-500/10"
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">📰 ニュース管理</h2>
-                <span className="text-xs text-muted-foreground group-hover:text-foreground">
-                  編集 →
-                </span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                取り込んだニュースのタイトル・要約・画像を編集できます。
-              </p>
-            </Link>
-            <Link
-              href="/admin/cron"
-              className="group rounded-lg border border-amber-500/40 bg-amber-500/5 p-5 transition-colors hover:bg-amber-500/10"
-            >
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold">📊 Cron 実行履歴</h2>
-                <span className="text-xs text-muted-foreground group-hover:text-foreground">
-                  確認 →
-                </span>
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                ingest / notify Cron の成功・失敗を 30 日グラフで確認できます。
-              </p>
-            </Link>
-          </>
         )}
       </section>
-
-      <Separator className="my-8" />
-
-      <form action={signOut}>
-        <Button type="submit" variant="outline">
-          ログアウト
-        </Button>
-      </form>
     </div>
   );
 }

@@ -45,7 +45,9 @@ export async function sendMagicLink(
   return { status: "success", email };
 }
 
-export async function signInWithGoogle() {
+export type OAuthResult = { url?: string; error?: string };
+
+export async function signInWithGoogle(): Promise<OAuthResult> {
   const headerList = await headers();
   const host = headerList.get("host");
   const proto = headerList.get("x-forwarded-proto") ?? "http";
@@ -59,13 +61,9 @@ export async function signInWithGoogle() {
     },
   });
 
-  if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
-  }
-
-  if (data?.url) {
-    redirect(data.url);
-  }
+  if (error) return { error: error.message };
+  if (data?.url) return { url: data.url };
+  return { error: "認証URLの取得に失敗しました" };
 }
 
 export async function signOut() {

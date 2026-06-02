@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { NearbyEvents } from "@/components/nearby-events";
+import { HomeInterestEditor } from "./home-interest-editor";
 import {
   CATEGORY_LABELS,
   formatEventDateTime,
@@ -92,6 +93,13 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* 興味タグ編集 (ログイン時のみ) */}
+      {user && (
+        <div className="mb-12">
+          <HomeInterestEditor initialCategories={interestCategories} />
+        </div>
+      )}
+
       {/* 近くで開催 (位置情報レコメンド Lv.1) */}
       <div className="mb-12">
         <NearbyEvents />
@@ -115,13 +123,7 @@ export default async function Home() {
           <p className="mb-3 text-xs text-muted-foreground">
             あなたの興味タグ (
             {interestCategories.map((c) => CATEGORY_LABELS[c]).join(" / ")})
-            を優先表示中。{" "}
-            <Link
-              href="/me/interests"
-              className="underline underline-offset-2 hover:text-foreground"
-            >
-              編集
-            </Link>
+            を優先表示中。
           </p>
         )}
 

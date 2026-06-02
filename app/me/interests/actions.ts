@@ -44,3 +44,30 @@ export async function saveInterests(
   revalidatePath("/");
   return { status: "success", count: unique.length };
 }
+
+// ホーム画面からの簡易保存 (カテゴリ配列を直接受け取る)
+export async function saveInterestList(
+  categories: string[]
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ログインが必要です" };
+
+  const unique = Array.from(
+    new Set(categories.filter((c) => typeof c === "string").filter(isEventCategory))
+  );
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ interest_categories: unique })
+    .eq("id", user.id);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/me");
+  revalidatePath("/me/interests");
+  revalidatePath("/");
+  return { ok: true };
+}

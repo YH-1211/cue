@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { SaveButton } from "./save-button";
+import { BackButton } from "@/components/back-button";
 import {
   CATEGORY_LABELS,
   formatEventDate,
@@ -231,12 +232,7 @@ export default async function EventDetailPage({
   return (
     <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
       <nav className="mb-4 text-sm">
-        <Link
-          href="/events"
-          className="text-muted-foreground hover:text-foreground"
-        >
-          ← イベント一覧に戻る
-        </Link>
+        <BackButton fallbackHref="/events" label="戻る" />
       </nav>
 
       {isPending && (

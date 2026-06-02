@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { sendMagicLink, signInWithGoogle, type LoginState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,22 @@ export function LoginForm() {
     sendMagicLink,
     initialState
   );
+  const [googlePending, startGoogle] = useTransition();
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  function onGoogle() {
+    setGoogleError(null);
+    startGoogle(async () => {
+      const res = await signInWithGoogle();
+      if (res.url) {
+        // 外部 (Supabase/Google) へはブラウザ遷移で飛ばす。
+        // サーバー側 redirect だと Next が RSC 取得を試みて失敗するため。
+        window.location.href = res.url;
+      } else {
+        setGoogleError(res.error ?? "ログインに失敗しました");
+      }
+    });
+  }
 
   if (state.status === "success") {
     return (
@@ -31,17 +47,21 @@ export function LoginForm() {
 
   return (
     <div className="flex flex-col gap-4">
-      <form action={signInWithGoogle}>
-        <Button
-          type="submit"
-          variant="outline"
-          size="lg"
-          className="w-full gap-2"
-        >
-          <GoogleIcon />
-          Google で続行
-        </Button>
-      </form>
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        className="w-full gap-2"
+        onClick={onGoogle}
+        disabled={googlePending}
+      >
+        <GoogleIcon />
+        {googlePending ? "リダイレクト中..." : "Google で続行"}
+      </Button>
+
+      {googleError && (
+        <p className="text-sm text-red-600 dark:text-red-400">{googleError}</p>
+      )}
 
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
