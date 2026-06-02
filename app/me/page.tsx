@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { RankBadge } from "@/components/rank-badge";
+import { rankFor, nextRank } from "@/lib/rank";
 import {
   CATEGORY_LABELS,
   formatEventDateTime,
@@ -74,6 +76,7 @@ type PointTransactionRow = {
 
 const REASON_LABELS: Record<string, string> = {
   event_approved: "イベント承認ボーナス",
+  report_posted: "レポート投稿ボーナス",
 };
 
 function formatPointDate(iso: string) {
@@ -192,12 +195,15 @@ export default async function MePage() {
               {user.email}
             </p>
           )}
-          <Link
-            href="/me/profile"
-            className="mt-1.5 w-fit text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-          >
-            プロフィールを編集
-          </Link>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <RankBadge points={points} compact />
+            <Link
+              href="/me/profile"
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              プロフィールを編集
+            </Link>
+          </div>
         </div>
         <div className="flex shrink-0 flex-col items-end rounded-lg border border-border bg-card px-3 py-2">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -346,6 +352,13 @@ export default async function MePage() {
             ))}
           </ul>
         )}
+      </section>
+
+      <Separator className="my-8" />
+
+      <section>
+        <h2 className="mb-4 text-lg font-semibold">ランク</h2>
+        <RankProgress points={points} />
       </section>
 
       <Separator className="my-8" />
@@ -619,6 +632,51 @@ export default async function MePage() {
           ログアウト
         </Button>
       </form>
+    </div>
+  );
+}
+
+function RankProgress({ points }: { points: number }) {
+  const rank = rankFor(points);
+  const next = nextRank(points);
+
+  // 現在ランクの下限〜次ランクの下限の進捗バー
+  const lower = rank.minPoints;
+  const upper = next ? next.rank.minPoints : lower;
+  const ratio =
+    next && upper > lower
+      ? Math.min(1, (points - lower) / (upper - lower))
+      : 1;
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <RankBadge points={points} />
+        {next ? (
+          <span className="text-xs text-muted-foreground">
+            次の「{next.rank.icon} {next.rank.label}」まであと{" "}
+            <span className="font-semibold text-foreground">
+              {next.remaining}pt
+            </span>
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">最高ランク到達 🎉</span>
+        )}
+      </div>
+
+      <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-foreground transition-all"
+          style={{ width: `${Math.round(ratio * 100)}%` }}
+        />
+      </div>
+
+      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+        イベントを投稿して承認されると{" "}
+        <span className="font-medium text-foreground">+10pt</span>、参加レポートを
+        投稿すると <span className="font-medium text-foreground">+5pt</span>。
+        貯まったポイントで称号がランクアップします。
+      </p>
     </div>
   );
 }

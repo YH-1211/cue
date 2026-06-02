@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS, type EventCategory } from "@/lib/events";
+import { RankBadge } from "@/components/rank-badge";
 import { FollowButton } from "../follow-button";
 
 export const metadata = { title: "ユーザー" };
@@ -96,7 +97,10 @@ export default async function UserProfilePage({
           </div>
         )}
         <div className="flex-1">
-          <h1 className="text-xl font-bold tracking-tight">{name}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight">{name}</h1>
+            <RankBadge points={profile.points ?? 0} compact />
+          </div>
           <div className="mt-1 flex gap-4 text-sm text-muted-foreground">
             <span>
               <span className="font-semibold text-foreground">{followers}</span>{" "}
