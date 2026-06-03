@@ -129,7 +129,7 @@ export default async function SearchPage({
       .from("events")
       .select("id, title, area, starts_at, lat, lng")
       .eq("approved", true)
-      .gte("starts_at", new Date().toISOString())
+      .gte("effective_end", new Date().toISOString())
       .not("lat", "is", null)
       .not("lng", "is", null)
       .limit(1000);

@@ -47,7 +47,7 @@ export default async function Home() {
     .from("events")
     .select("id, title, starts_at, venue_name, area, category, cover_image_url")
     .eq("approved", true)
-    .gte("starts_at", new Date().toISOString())
+    .gte("effective_end", new Date().toISOString())
     .order("starts_at", { ascending: true })
     .limit(hasInterests ? 24 : 6);
 

@@ -7,7 +7,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { SaveButton } from "./save-button";
+import { AdminDeleteButton } from "./admin-delete-button";
 import { BackButton } from "@/components/back-button";
+import { isAdmin } from "@/lib/admin";
 import {
   CATEGORY_LABELS,
   formatEventDate,
@@ -63,6 +65,7 @@ type EventDetail = {
   official_url: string;
   ticket_url: string | null;
   ticket_sale_starts_at: string | null;
+  ticket_sale_ends_at: string | null;
   approved: boolean;
   submitted_by: string | null;
   event_tags: { tags: { slug: string; name: string } | null }[];
@@ -97,7 +100,7 @@ export default async function EventDetailPage({
       `
         id, title, description, starts_at, ends_at,
         venue_name, address, area, category, cover_image_url,
-        official_url, ticket_url, ticket_sale_starts_at, approved, submitted_by,
+        official_url, ticket_url, ticket_sale_starts_at, ticket_sale_ends_at, approved, submitted_by,
         event_tags ( tags ( slug, name ) )
       `
     )
@@ -144,6 +147,7 @@ export default async function EventDetailPage({
   }
 
   const isPending = !event.approved;
+  const admin = await isAdmin();
 
   // 行ったレポート一覧 (公開済みイベントのみ表示)
   let reports: ReportRow[] = [];
@@ -183,6 +187,12 @@ export default async function EventDetailPage({
   // eslint-disable-next-line react-hooks/purity
   const isPast = new Date(eventEndIso).getTime() < Date.now();
   const canReport = event.approved && isPast;
+
+  // チケット販売終了の判定
+  // eslint-disable-next-line react-hooks/purity
+  const ticketSaleEnded =
+    event.ticket_sale_ends_at != null &&
+    new Date(event.ticket_sale_ends_at).getTime() < Date.now();
 
   // 関連イベント (同カテゴリ + 同エリア優先 / 未来 / 自身を除く)
   type RelatedRow = {
@@ -301,6 +311,28 @@ export default async function EventDetailPage({
             <dd>{formatEventDate(event.ticket_sale_starts_at)} 〜</dd>
           </>
         )}
+
+        {event.ticket_sale_ends_at && (
+          <>
+            <dt className="font-medium text-muted-foreground">
+              チケット販売
+            </dt>
+            <dd>
+              {ticketSaleEnded ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    販売終了
+                  </span>
+                  <span className="text-muted-foreground">
+                    {formatEventDateTime(event.ticket_sale_ends_at)} まで
+                  </span>
+                </span>
+              ) : (
+                <>〜 {formatEventDateTime(event.ticket_sale_ends_at)} まで</>
+              )}
+            </dd>
+          </>
+        )}
       </dl>
 
       {event.description && (
@@ -326,16 +358,25 @@ export default async function EventDetailPage({
         >
           公式サイトへ
         </a>
-        {event.ticket_url && (
-          <a
-            href={event.ticket_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonVariants({ size: "lg", variant: "outline" })}
-          >
-            チケットを購入
-          </a>
-        )}
+        {event.ticket_url &&
+          (ticketSaleEnded ? (
+            <span
+              className={buttonVariants({ size: "lg", variant: "outline" })}
+              aria-disabled="true"
+              style={{ opacity: 0.5, pointerEvents: "none" }}
+            >
+              チケット販売終了
+            </span>
+          ) : (
+            <a
+              href={event.ticket_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonVariants({ size: "lg", variant: "outline" })}
+            >
+              チケットを購入
+            </a>
+          ))}
         <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!viewer} />
         {!isPast && (
           <a
@@ -356,6 +397,7 @@ export default async function EventDetailPage({
             {viewerHasReport ? "レポートを編集" : "行ってきた / 感想を投稿"}
           </Link>
         )}
+        {admin && <AdminDeleteButton eventId={event.id} title={event.title} />}
       </div>
 
       {related.length > 0 && (

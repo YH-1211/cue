@@ -34,6 +34,12 @@ type EventForTicket = {
   ticket_sale_starts_at: string | null;
 };
 
+type EventForTicketEnd = {
+  id: string;
+  title: string;
+  ticket_sale_ends_at: string | null;
+};
+
 function isAuthorized(req: NextRequest) {
   // Vercel Cron は Authorization: Bearer <CRON_SECRET> を付ける
   const auth = req.headers.get("authorization");
@@ -78,6 +84,10 @@ export async function GET(req: NextRequest) {
     ticket_24h: 0,
     ticket_1h: 0,
     ticket_now: 0,
+    ticket_end_3d: 0,
+    ticket_end_1d: 0,
+    ticket_end_soon: 0,
+    ticket_end_over: 0,
     interest_weekly: 0,
     nearby_match: 0,
     saved_search: 0,
@@ -129,6 +139,39 @@ export async function GET(req: NextRequest) {
   result.ticket_24h = await sendTicketSale(admin, "ticket_24h", 24 * 60);
   result.ticket_1h = await sendTicketSale(admin, "ticket_1h", 60);
   result.ticket_now = await sendTicketSale(admin, "ticket_now", 0);
+
+  // ============================================
+  // 3b) チケット販売終了通知 (締切前 3日/前日/当日 + 締切後)
+  //     cron は 9 時/19 時 JST の 2 回。窓を広めにとり、重複は log で防ぐ。
+  // ============================================
+  result.ticket_end_3d = await sendTicketSaleEnd(
+    admin,
+    "ticket_end_3d",
+    60,
+    84,
+    "まもなく販売終了 (3日前):"
+  );
+  result.ticket_end_1d = await sendTicketSaleEnd(
+    admin,
+    "ticket_end_1d",
+    12,
+    36,
+    "明日販売終了:"
+  );
+  result.ticket_end_soon = await sendTicketSaleEnd(
+    admin,
+    "ticket_end_soon",
+    0,
+    6,
+    "まもなく販売終了:"
+  );
+  result.ticket_end_over = await sendTicketSaleEnd(
+    admin,
+    "ticket_end_over",
+    -15,
+    0,
+    "チケット販売が終了:"
+  );
 
   // ============================================
   // 4) 興味マッチ新着 (週1: 月曜 朝 9 時台に1回)
@@ -352,6 +395,89 @@ async function sendTicketSale(
         hour: "2-digit",
         minute: "2-digit",
       }),
+      url: `/events/${ev.id}`,
+      tag: `${kind}:${ev.id}`,
+    });
+    if (ok > 0) {
+      await admin
+        .from("notification_log")
+        .insert({ user_id: row.user_id, kind, event_id: ev.id });
+      sent += 1;
+    }
+  }
+  return sent;
+}
+
+// =====================================================
+// チケット販売終了通知 (締切前リマインド + 締切後のお知らせ)
+//   kind: ticket_end_3d / ticket_end_1d / ticket_end_soon / ticket_end_over
+//   ticket_sale_ends_at が [now+fromH, now+toH] の窓に入る saved_events を対象。
+//   cron は 1 日 2 回 (9 時 / 19 時 JST) なので窓は広め。notification_log で重複防止。
+// =====================================================
+async function sendTicketSaleEnd(
+  admin: ReturnType<typeof createAdminClient>,
+  kind: "ticket_end_3d" | "ticket_end_1d" | "ticket_end_soon" | "ticket_end_over",
+  fromHours: number,
+  toHours: number,
+  label: string
+) {
+  const now = new Date();
+  const from = new Date(now.getTime() + fromHours * 60 * 60 * 1000);
+  const to = new Date(now.getTime() + toHours * 60 * 60 * 1000);
+
+  const { data, error } = await admin
+    .from("saved_events")
+    .select(
+      `user_id,
+       events!inner ( id, title, ticket_sale_ends_at )`
+    )
+    .gte("events.ticket_sale_ends_at", from.toISOString())
+    .lte("events.ticket_sale_ends_at", to.toISOString())
+    .eq("events.approved", true);
+
+  if (error || !data) return 0;
+
+  let sent = 0;
+  for (const row of data as unknown as Array<{
+    user_id: string;
+    events: EventForTicketEnd | null;
+  }>) {
+    const ev = row.events;
+    if (!ev || !ev.ticket_sale_ends_at) continue;
+
+    // ユーザー側 prefs (notify_ticket) でまとめて ON/OFF。静音時間も尊重。
+    const { data: profile } = await admin
+      .from("profiles")
+      .select(
+        "notify_ticket, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end"
+      )
+      .eq("id", row.user_id)
+      .maybeSingle();
+    if (!profile?.notify_ticket) continue;
+    if (isQuietNow(profile as unknown as QuietPrefs, new Date())) continue;
+
+    // 重複防止
+    const dup = await admin
+      .from("notification_log")
+      .select("id")
+      .eq("user_id", row.user_id)
+      .eq("kind", kind)
+      .eq("event_id", ev.id)
+      .maybeSingle();
+    if (dup.data) continue;
+
+    const when = new Date(ev.ticket_sale_ends_at).toLocaleString("ja-JP", {
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const body =
+      kind === "ticket_end_over" ? `${when} に販売終了しました` : `締切: ${when}`;
+
+    const ok = await sendPushToUser(admin, row.user_id, {
+      title: `${label} ${ev.title}`,
+      body,
       url: `/events/${ev.id}`,
       tag: `${kind}:${ev.id}`,
     });

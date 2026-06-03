@@ -225,16 +225,20 @@ async function upsertEvent(
   startsAt: Date
 ): Promise<boolean> {
   // 既存レコードを確認。ticket_url がまだ無いときだけ fetch を試みる (upsertNews と同じ方針)。
+  // 初回 fetch のついでに販売終了日時 (JSON-LD) も拾う。
   const { data: existing } = await admin
     .from("events")
-    .select("id, ticket_url")
+    .select("id, ticket_url, ticket_sale_ends_at")
     .eq("source_type", "rss")
     .eq("source_id", link)
     .maybeSingle();
 
   let ticketUrl: string | null = existing?.ticket_url ?? null;
+  let ticketSaleEndsAt: string | null = existing?.ticket_sale_ends_at ?? null;
   if (!ticketUrl) {
-    ticketUrl = await fetchTicketUrl(link);
+    const info = await fetchTicketInfo(link);
+    ticketUrl = info.url;
+    if (info.saleEndsAt) ticketSaleEndsAt = info.saleEndsAt;
   }
 
   const row = {
@@ -248,6 +252,7 @@ async function upsertEvent(
     source_id: link,
     approved: src.auto_approve,
     ticket_url: ticketUrl,
+    ticket_sale_ends_at: ticketSaleEndsAt,
   };
 
   const { error } = await admin
@@ -425,7 +430,13 @@ const TICKET_TEXT_KEYWORDS = [
   "お申し込み",
 ];
 
-async function fetchTicketUrl(pageUrl: string): Promise<string | null> {
+type TicketInfo = { url: string | null; saleEndsAt: string | null };
+
+// 公式ページを fetch して、チケットリンク + (取得できれば) 販売終了日時を返す。
+// 販売終了日時は JSON-LD の offers.validThrough / availabilityEnds / priceValidUntil から拾う。
+// 構造化データを持つページでのみ取得でき、無ければ null (= 不明) を返す。
+async function fetchTicketInfo(pageUrl: string): Promise<TicketInfo> {
+  const empty: TicketInfo = { url: null, saleEndsAt: null };
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 4000);
@@ -438,13 +449,13 @@ async function fetchTicketUrl(pageUrl: string): Promise<string | null> {
     });
     clearTimeout(timer);
 
-    if (!res.ok) return null;
+    if (!res.ok) return empty;
     const type = res.headers.get("content-type") ?? "";
-    if (!type.includes("text/html") && !type.includes("xhtml")) return null;
+    if (!type.includes("text/html") && !type.includes("xhtml")) return empty;
 
     // チケットリンクは body 中段以降にあることも多いので og 取得より少し多めに 128KB 読む
     const reader = res.body?.getReader();
-    if (!reader) return null;
+    if (!reader) return empty;
     const decoder = new TextDecoder("utf-8");
     let html = "";
     const MAX = 128 * 1024;
@@ -459,11 +470,14 @@ async function fetchTicketUrl(pageUrl: string): Promise<string | null> {
       // ignore
     }
 
+    // 先に JSON-LD から販売終了日時を拾う (取れなくても続行)
+    const saleEndsAt = extractSaleEndsAt(html);
+
     let baseOrigin: string;
     try {
       baseOrigin = new URL(pageUrl).origin;
     } catch {
-      return null;
+      return { url: null, saleEndsAt };
     }
 
     // <a ...href="..."...>text</a> を網羅 (シンプルな正規表現でグローバルにスキャン)
@@ -506,13 +520,56 @@ async function fetchTicketUrl(pageUrl: string): Promise<string | null> {
         continue;
       }
 
-      return absStr;
+      return { url: absStr, saleEndsAt };
     }
 
-    return null;
+    return { url: null, saleEndsAt };
   } catch {
     // タイムアウト / 接続失敗等は静かに諦める
-    return null;
+    return empty;
+  }
+}
+
+// HTML 中の JSON-LD ブロックを走査し、チケット販売終了とみなせる日時を1つ返す。
+//   - schema.org Offer.validThrough (= オファー/価格の有効期限 = 販売締切) のみを採用。
+//     誤検出を避けるため priceValidUntil 等のノイズになりやすいキーは使わない。
+//   - 複数チケット種別があれば最も遅い日時 (= 最終販売締切) を採用。
+// 構造化データが無ければ null (= 不明)。
+function extractSaleEndsAt(html: string): string | null {
+  const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  const candidates: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    let json: unknown;
+    try {
+      json = JSON.parse(m[1].trim());
+    } catch {
+      continue;
+    }
+    collectSaleEndCandidates(json, candidates);
+  }
+  if (candidates.length === 0) return null;
+  // 最終販売締切とみなして最も遅い日時を採用
+  const latest = Math.max(...candidates);
+  return new Date(latest).toISOString();
+}
+
+const SALE_END_KEYS = new Set(["validThrough"]);
+
+function collectSaleEndCandidates(node: unknown, out: number[], depth = 0): void {
+  if (depth > 6 || node == null) return;
+  if (Array.isArray(node)) {
+    for (const v of node) collectSaleEndCandidates(v, out, depth + 1);
+    return;
+  }
+  if (typeof node !== "object") return;
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    if (SALE_END_KEYS.has(key) && typeof value === "string") {
+      const t = Date.parse(value);
+      if (!Number.isNaN(t)) out.push(t);
+    } else if (typeof value === "object" && value !== null) {
+      collectSaleEndCandidates(value, out, depth + 1);
+    }
   }
 }
 
