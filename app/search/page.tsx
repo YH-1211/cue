@@ -41,6 +41,7 @@ type SearchParams = {
   view?: string;
   free?: string;
   evening?: string;
+  food?: string;
 };
 
 type Facets = {
@@ -97,6 +98,7 @@ export default async function SearchPage({
   const view = sp.view === "map" ? "map" : "list";
   const freeOnly = sp.free === "1";
   const eveningOnly = sp.evening === "1";
+  const foodStallsOnly = sp.food === "1";
   const activeCategory =
     sp.category && isEventCategory(sp.category) ? sp.category : null;
   const areas = (sp.areas ?? "")
@@ -110,7 +112,8 @@ export default async function SearchPage({
     !!activeCategory ||
     areas.length > 0 ||
     freeOnly ||
-    eveningOnly;
+    eveningOnly ||
+    foodStallsOnly;
 
   const supabase = await createClient();
   const {
@@ -173,6 +176,7 @@ export default async function SearchPage({
         p_date_to: dateTo ?? null,
         p_free_only: freeOnly,
         p_evening_only: eveningOnly,
+        p_food_stalls: foodStallsOnly,
         p_sort: rpcSort,
         p_limit: 50,
       }),
@@ -182,6 +186,7 @@ export default async function SearchPage({
         p_date_to: dateTo ?? null,
         p_free_only: freeOnly,
         p_evening_only: eveningOnly,
+        p_food_stalls: foodStallsOnly,
       }),
     ]);
 

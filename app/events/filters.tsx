@@ -73,6 +73,7 @@ export function EventsFilters({
   const areas = (params.get("areas") ?? "").split(",").filter(Boolean);
   const free = params.get("free") === "1";
   const evening = params.get("evening") === "1";
+  const foodStalls = params.get("food") === "1";
 
   // ファセット件数 (検索ページのみ渡される)
   function catCount(value: string): number | null {
@@ -155,6 +156,7 @@ export function EventsFilters({
     areas?: string[];
     free?: boolean;
     evening?: boolean;
+    food?: boolean;
   }) {
     const sp = new URLSearchParams();
     const newQ = next.q ?? q;
@@ -164,6 +166,7 @@ export function EventsFilters({
     const newAreas = next.areas ?? areas;
     const newFree = next.free ?? free;
     const newEvening = next.evening ?? evening;
+    const newFood = next.food ?? foodStalls;
     if (newQ) sp.set("q", newQ);
     if (newDate) sp.set("date", newDate);
     if (newCategory) sp.set("category", newCategory);
@@ -171,6 +174,7 @@ export function EventsFilters({
     if (newAreas.length > 0) sp.set("areas", newAreas.join(","));
     if (newFree) sp.set("free", "1");
     if (newEvening) sp.set("evening", "1");
+    if (newFood) sp.set("food", "1");
     const qs = sp.toString();
     start(() => router.push(qs ? `${basePath}?${qs}` : basePath));
   }
@@ -196,7 +200,14 @@ export function EventsFilters({
   }
 
   const hasAny =
-    urlQ || date || category || sort || areas.length > 0 || free || evening;
+    urlQ ||
+    date ||
+    category ||
+    sort ||
+    areas.length > 0 ||
+    free ||
+    evening ||
+    foodStalls;
 
   const SORTS = [
     { value: "", label: "開催が近い順" },
@@ -310,6 +321,12 @@ export function EventsFilters({
           onClick={() => apply({ evening: !evening })}
         >
           夜開催 (18時〜)
+        </PillButton>
+        <PillButton
+          active={foodStalls}
+          onClick={() => apply({ food: !foodStalls })}
+        >
+          屋台あり
         </PillButton>
       </div>
 
