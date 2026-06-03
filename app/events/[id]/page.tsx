@@ -55,7 +55,7 @@ type EventDetail = {
   id: string;
   title: string;
   description: string | null;
-  starts_at: string;
+  starts_at: string | null;
   ends_at: string | null;
   venue_name: string | null;
   address: string | null;
@@ -183,9 +183,11 @@ export default async function EventDetailPage({
     }
   }
 
+  const hasDate = event.starts_at != null;
   const eventEndIso = event.ends_at ?? event.starts_at;
   // eslint-disable-next-line react-hooks/purity
-  const isPast = new Date(eventEndIso).getTime() < Date.now();
+  const isPast =
+    eventEndIso != null && new Date(eventEndIso).getTime() < Date.now();
   const canReport = event.approved && isPast;
 
   // チケット販売終了の判定
@@ -282,12 +284,25 @@ export default async function EventDetailPage({
       <dl className="grid grid-cols-1 gap-4 rounded-lg border border-border bg-card p-5 text-sm sm:grid-cols-[120px_1fr]">
         <dt className="font-medium text-muted-foreground">開催日時</dt>
         <dd>
-          {formatEventDateTime(event.starts_at)}
-          {event.ends_at && (
+          {event.starts_at ? (
             <>
-              <span className="mx-1 text-muted-foreground">〜</span>
-              {formatEventDateTime(event.ends_at)}
+              {formatEventDateTime(event.starts_at)}
+              {event.ends_at && (
+                <>
+                  <span className="mx-1 text-muted-foreground">〜</span>
+                  {formatEventDateTime(event.ends_at)}
+                </>
+              )}
             </>
+          ) : (
+            <span className="inline-flex items-center gap-2">
+              <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                日程未定
+              </span>
+              <span className="text-muted-foreground">
+                日時が決まり次第お知らせします
+              </span>
+            </span>
           )}
         </dd>
 
@@ -378,7 +393,7 @@ export default async function EventDetailPage({
             </a>
           ))}
         <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!viewer} />
-        {!isPast && (
+        {!isPast && hasDate && (
           <a
             href={`/api/events/${event.id}/ics`}
             className={buttonVariants({ size: "lg", variant: "outline" })}

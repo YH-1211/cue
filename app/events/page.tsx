@@ -22,7 +22,7 @@ export const metadata = { title: "イベント" };
 type EventRow = {
   id: string;
   title: string;
-  starts_at: string;
+  starts_at: string | null;
   venue_name: string | null;
   area: string | null;
   category: EventCategory;
@@ -72,6 +72,29 @@ export default async function EventsPage({
 
   const { data, error } = await query;
   const events = (data ?? []) as EventRow[];
+
+  // 日程未定 (starts_at が NULL) のイベントを別枠で取得
+  let tbdQuery = supabase
+    .from("events")
+    .select("id, title, starts_at, venue_name, area, category, cover_image_url")
+    .eq("approved", true)
+    .is("starts_at", null)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (activeCategory) {
+    if (isParentCategory(activeCategory)) {
+      tbdQuery = tbdQuery.in("category", categoriesUnderParent(activeCategory));
+    } else {
+      tbdQuery = tbdQuery.eq("category", activeCategory);
+    }
+  }
+  if (activeArea) {
+    tbdQuery = tbdQuery.eq("area", activeArea);
+  }
+
+  const { data: tbdData } = await tbdQuery;
+  const tbdEvents = (tbdData ?? []) as EventRow[];
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
@@ -156,58 +179,90 @@ export default async function EventsPage({
         <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
           イベント取得エラー: {error.message}
         </div>
-      ) : events.length === 0 ? (
+      ) : events.length === 0 && tbdEvents.length === 0 ? (
         <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
           {activeCategory
             ? `「${CATEGORY_LABELS[activeCategory]}」の予定はまだありません。`
             : "予定されているイベントはまだありません。"}
         </div>
       ) : (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {events.map((event) => (
-            <li key={event.id}>
-              <Link
-                href={`/events/${event.id}`}
-                className="group block focus:outline-none"
-              >
-                <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
-                  {event.cover_image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={event.cover_image_url}
-                      alt=""
-                      className="h-40 w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-40 w-full bg-muted" />
-                  )}
-                  <CardContent className="flex flex-col gap-2 p-4">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">
-                        {CATEGORY_LABELS[event.category]}
-                      </Badge>
-                      <time className="text-xs text-muted-foreground">
-                        {formatEventDateTime(event.starts_at)}
-                      </time>
-                    </div>
-                    <h2 className="line-clamp-2 text-base font-semibold leading-snug">
-                      {event.title}
-                    </h2>
-                    {(event.venue_name || event.area) && (
-                      <p className="line-clamp-1 text-sm text-muted-foreground">
-                        {event.area && `${event.area} / `}
-                        {event.venue_name}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          {events.length > 0 && (
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {events.map((event) => (
+                <EventCard key={event.id} event={event} />
+              ))}
+            </ul>
+          )}
+
+          {tbdEvents.length > 0 && (
+            <section className="mt-10">
+              <h2 className="mb-1 text-lg font-semibold tracking-tight">
+                日程未定
+              </h2>
+              <p className="mb-4 text-sm text-muted-foreground">
+                開催が決まっているけれど、日時がまだ発表されていないイベント。詳細が分かり次第更新します。
+              </p>
+              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {tbdEvents.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+function EventCard({ event }: { event: EventRow }) {
+  return (
+    <li>
+      <Link
+        href={`/events/${event.id}`}
+        className="group block focus:outline-none"
+      >
+        <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
+          {event.cover_image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={event.cover_image_url}
+              alt=""
+              className="h-40 w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="h-40 w-full bg-muted" />
+          )}
+          <CardContent className="flex flex-col gap-2 p-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">
+                {CATEGORY_LABELS[event.category]}
+              </Badge>
+              {event.starts_at ? (
+                <time className="text-xs text-muted-foreground">
+                  {formatEventDateTime(event.starts_at)}
+                </time>
+              ) : (
+                <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  日程未定
+                </span>
+              )}
+            </div>
+            <h2 className="line-clamp-2 text-base font-semibold leading-snug">
+              {event.title}
+            </h2>
+            {(event.venue_name || event.area) && (
+              <p className="line-clamp-1 text-sm text-muted-foreground">
+                {event.area && `${event.area} / `}
+                {event.venue_name}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </Link>
+    </li>
   );
 }
 

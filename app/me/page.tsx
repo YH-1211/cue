@@ -47,7 +47,7 @@ type SavedEventRow = {
   events: {
     id: string;
     title: string;
-    starts_at: string;
+    starts_at: string | null;
     venue_name: string | null;
     area: string | null;
     category: EventCategory;
@@ -265,9 +265,15 @@ export default async function MePage() {
                       <Badge variant="secondary" className="text-xs">
                         {CATEGORY_LABELS[event.category]}
                       </Badge>
-                      <time className="text-xs text-muted-foreground">
-                        {formatEventDateTime(event.starts_at)}
-                      </time>
+                      {event.starts_at ? (
+                        <time className="text-xs text-muted-foreground">
+                          {formatEventDateTime(event.starts_at)}
+                        </time>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          日程未定
+                        </span>
+                      )}
                     </div>
                     <p className="line-clamp-2 text-sm font-semibold">
                       {event.title}
