@@ -54,26 +54,47 @@ export default async function Home() {
     )
   );
 
-  // 興味タグがあれば、対象カテゴリを優先取得 (それ以外は不足分を補う)
-  const { data } = await supabase
-    .from("events")
-    .select(
-      "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls",
-    )
-    .eq("approved", true)
-    .gte("effective_end", new Date().toISOString())
-    .order("starts_at", { ascending: true })
-    .limit(hasInterests ? 24 : 6);
+  const SELECT =
+    "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls";
+  const nowIso = new Date().toISOString();
 
-  const allEvents = (data ?? []) as EventRow[];
-
+  // 興味タグがあれば、対象カテゴリのイベントをDBから直接優先取得し、
+  // 残り枠を一般のイベント(開催が近い順)で補う。
   let events: EventRow[];
   if (hasInterests) {
-    const matched = allEvents.filter((e) => interestMatchSet.has(e.category));
-    const others = allEvents.filter((e) => !interestMatchSet.has(e.category));
-    events = [...matched, ...others].slice(0, 6);
+    const [{ data: matchedData }, { data: fillData }] = await Promise.all([
+      supabase
+        .from("events")
+        .select(SELECT)
+        .eq("approved", true)
+        .gte("effective_end", nowIso)
+        .in("category", Array.from(interestMatchSet))
+        .order("starts_at", { ascending: true })
+        .limit(6),
+      supabase
+        .from("events")
+        .select(SELECT)
+        .eq("approved", true)
+        .gte("effective_end", nowIso)
+        .order("starts_at", { ascending: true })
+        .limit(6),
+    ]);
+
+    const matched = (matchedData ?? []) as EventRow[];
+    const seen = new Set(matched.map((e) => e.id));
+    const fill = ((fillData ?? []) as EventRow[]).filter(
+      (e) => !seen.has(e.id)
+    );
+    events = [...matched, ...fill].slice(0, 6);
   } else {
-    events = allEvents.slice(0, 6);
+    const { data } = await supabase
+      .from("events")
+      .select(SELECT)
+      .eq("approved", true)
+      .gte("effective_end", nowIso)
+      .order("starts_at", { ascending: true })
+      .limit(6);
+    events = (data ?? []) as EventRow[];
   }
 
   return (
