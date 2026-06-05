@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   const { data, error } = await supabase
     .from("events")
     .select(
-      "id, title, starts_at, venue_name, area, category, cover_image_url"
+      "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls"
     )
     .eq("approved", true)
     .in(

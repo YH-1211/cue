@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EventCover } from "@/components/event-cover";
 import {
   CATEGORY_LABELS,
   formatEventDateTime,
@@ -19,6 +20,7 @@ type NearbyEvent = {
   area: string | null;
   category: EventCategory;
   cover_image_url: string | null;
+  has_food_stalls: boolean | null;
   distance_km: number | null;
 };
 
@@ -190,17 +192,12 @@ export function NearbyEvents() {
                 className="group block focus:outline-none"
               >
                 <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
-                  {event.cover_image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={event.cover_image_url}
-                      alt=""
-                      className="h-40 w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-40 w-full bg-muted" />
-                  )}
+                  <EventCover
+                    coverImageUrl={event.cover_image_url}
+                    category={event.category}
+                    hasFoodStalls={event.has_food_stalls}
+                    className="h-40 w-full"
+                  />
                   <CardContent className="flex flex-col gap-2 p-4">
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">

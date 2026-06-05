@@ -11,6 +11,7 @@ export type NearbyEvent = {
   area: string | null;
   category: EventCategory;
   cover_image_url: string | null;
+  has_food_stalls: boolean | null;
   lat: number | null;
   lng: number | null;
 };
@@ -28,7 +29,7 @@ export async function fetchNearbyEvents(
   let query = supabase
     .from("events")
     .select(
-      "id, title, starts_at, venue_name, area, category, cover_image_url, lat, lng"
+      "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls, lat, lng"
     )
     .eq("approved", true)
     .in("area", validAreas)

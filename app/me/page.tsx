@@ -11,6 +11,8 @@ import { RankBadge } from "@/components/rank-badge";
 import { BackButton } from "@/components/back-button";
 import { SettingsMenu } from "./settings-menu";
 import { rankFor, nextRank } from "@/lib/rank";
+import { SITE } from "@/lib/site";
+import { EventCover } from "@/components/event-cover";
 import {
   CATEGORY_LABELS,
   formatEventDateTime,
@@ -52,6 +54,7 @@ type SavedEventRow = {
     area: string | null;
     category: EventCategory;
     cover_image_url: string | null;
+    has_food_stalls: boolean | null;
   } | null;
 };
 
@@ -63,6 +66,7 @@ type SubmittedEventRow = {
   area: string | null;
   category: EventCategory;
   cover_image_url: string | null;
+  has_food_stalls: boolean | null;
   approved: boolean;
   created_at: string;
 };
@@ -110,7 +114,7 @@ export default async function MePage() {
         `
           created_at,
           events (
-            id, title, starts_at, venue_name, area, category, cover_image_url
+            id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls
           )
         `
       )
@@ -119,7 +123,7 @@ export default async function MePage() {
     supabase
       .from("events")
       .select(
-        "id, title, starts_at, venue_name, area, category, cover_image_url, approved, created_at"
+        "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls, approved, created_at"
       )
       .eq("submitted_by", user.id)
       .eq("source_type", "user")
@@ -249,17 +253,13 @@ export default async function MePage() {
                   href={`/events/${event.id}`}
                   className="group flex gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted"
                 >
-                  {event.cover_image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={event.cover_image_url}
-                      alt=""
-                      className="h-20 w-20 shrink-0 rounded object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-20 w-20 shrink-0 rounded bg-muted" />
-                  )}
+                  <EventCover
+                    coverImageUrl={event.cover_image_url}
+                    category={event.category}
+                    hasFoodStalls={event.has_food_stalls}
+                    className="h-20 w-20 shrink-0"
+                    rounded
+                  />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
@@ -324,17 +324,13 @@ export default async function MePage() {
                   href={`/events/${event.id}`}
                   className="group flex gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted"
                 >
-                  {event.cover_image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={event.cover_image_url}
-                      alt=""
-                      className="h-20 w-20 shrink-0 rounded object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-20 w-20 shrink-0 rounded bg-muted" />
-                  )}
+                  <EventCover
+                    coverImageUrl={event.cover_image_url}
+                    category={event.category}
+                    hasFoodStalls={event.has_food_stalls}
+                    className="h-20 w-20 shrink-0"
+                    rounded
+                  />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
@@ -524,6 +520,37 @@ export default async function MePage() {
             ))}
           </div>
         )}
+      </section>
+
+      <Separator className="my-8" />
+
+      <section>
+        <h2 className="mb-4 text-lg font-semibold">設定・その他</h2>
+        <nav className="flex flex-col rounded-lg border border-border">
+          <Link
+            href="/terms"
+            className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
+          >
+            利用規約
+            <span className="text-muted-foreground">→</span>
+          </Link>
+          <Separator />
+          <Link
+            href="/privacy"
+            className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
+          >
+            プライバシーポリシー
+            <span className="text-muted-foreground">→</span>
+          </Link>
+          <Separator />
+          <a
+            href={`mailto:${SITE.contactEmail}`}
+            className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
+          >
+            お問い合わせ
+            <span className="text-muted-foreground">→</span>
+          </a>
+        </nav>
       </section>
     </div>
   );

@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EventCover } from "@/components/event-cover";
 import {
   CATEGORY_LABELS,
   PARENT_CATEGORIES,
@@ -27,6 +28,7 @@ type EventRow = {
   area: string | null;
   category: EventCategory;
   cover_image_url: string | null;
+  has_food_stalls: boolean | null;
 };
 
 export default async function EventsPage({
@@ -53,7 +55,9 @@ export default async function EventsPage({
 
   let query = supabase
     .from("events")
-    .select("id, title, starts_at, venue_name, area, category, cover_image_url")
+    .select(
+      "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls",
+    )
     .eq("approved", true)
     .gte("effective_end", new Date().toISOString())
     .order("starts_at", { ascending: true })
@@ -76,7 +80,9 @@ export default async function EventsPage({
   // 日程未定 (starts_at が NULL) のイベントを別枠で取得
   let tbdQuery = supabase
     .from("events")
-    .select("id, title, starts_at, venue_name, area, category, cover_image_url")
+    .select(
+      "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls",
+    )
     .eq("approved", true)
     .is("starts_at", null)
     .order("created_at", { ascending: false })
@@ -224,17 +230,12 @@ function EventCard({ event }: { event: EventRow }) {
         className="group block focus:outline-none"
       >
         <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
-          {event.cover_image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={event.cover_image_url}
-              alt=""
-              className="h-40 w-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="h-40 w-full bg-muted" />
-          )}
+          <EventCover
+            coverImageUrl={event.cover_image_url}
+            category={event.category}
+            hasFoodStalls={event.has_food_stalls}
+            className="h-40 w-full"
+          />
           <CardContent className="flex flex-col gap-2 p-4">
             <div className="flex items-center gap-2">
               <Badge variant="secondary">

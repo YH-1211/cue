@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { EventMap, type MapMarker } from "@/components/event-map";
+import { EventCover } from "@/components/event-cover";
 import {
   AREA_COORDS,
   distanceKm,
@@ -283,17 +284,13 @@ export function NearbyClient({
                   href={`/events/${e.id}`}
                   className="group flex gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted"
                 >
-                  {e.cover_image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={e.cover_image_url}
-                      alt=""
-                      className="h-20 w-20 shrink-0 rounded object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="h-20 w-20 shrink-0 rounded bg-muted" />
-                  )}
+                  <EventCover
+                    coverImageUrl={e.cover_image_url}
+                    category={e.category}
+                    hasFoodStalls={e.has_food_stalls}
+                    className="h-20 w-20 shrink-0"
+                    rounded
+                  />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="secondary" className="text-xs">

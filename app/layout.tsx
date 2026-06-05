@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/header";
+import { Footer } from "@/components/footer";
 import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { PWAInstallBanner } from "@/components/pwa-install-banner";
@@ -55,6 +56,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans pb-[calc(env(safe-area-inset-bottom)+64px)] sm:pb-0">
         <Header />
         <main className="flex-1 flex flex-col">{children}</main>
+        <Footer />
         <BottomNav />
         <ServiceWorkerRegister />
         <PWAInstallBanner />

@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EventCover } from "@/components/event-cover";
 import { Separator } from "@/components/ui/separator";
 import { SaveButton } from "./save-button";
 import { AdminDeleteButton } from "./admin-delete-button";
@@ -62,6 +63,7 @@ type EventDetail = {
   area: string | null;
   category: EventCategory;
   cover_image_url: string | null;
+  has_food_stalls: boolean | null;
   official_url: string;
   ticket_url: string | null;
   ticket_sale_starts_at: string | null;
@@ -99,7 +101,7 @@ export default async function EventDetailPage({
     .select(
       `
         id, title, description, starts_at, ends_at,
-        venue_name, address, area, category, cover_image_url,
+        venue_name, address, area, category, cover_image_url, has_food_stalls,
         official_url, ticket_url, ticket_sale_starts_at, ticket_sale_ends_at, approved, submitted_by,
         event_tags ( tags ( slug, name ) )
       `
@@ -204,13 +206,14 @@ export default async function EventDetailPage({
     area: string | null;
     cover_image_url: string | null;
     category: EventCategory;
+    has_food_stalls: boolean | null;
   };
   let related: RelatedRow[] = [];
   if (event.approved && !isPast) {
     const nowIso = new Date().toISOString();
     let relQ = supabase
       .from("events")
-      .select("id, title, starts_at, area, cover_image_url, category")
+      .select("id, title, starts_at, area, cover_image_url, category, has_food_stalls")
       .eq("approved", true)
       .neq("id", event.id)
       .eq("category", event.category)
@@ -229,7 +232,7 @@ export default async function EventDetailPage({
       const need = 6 - related.length;
       const { data: more } = await supabase
         .from("events")
-        .select("id, title, starts_at, area, cover_image_url, category")
+        .select("id, title, starts_at, area, cover_image_url, category, has_food_stalls")
         .eq("approved", true)
         .neq("id", event.id)
         .eq("category", event.category)
@@ -256,14 +259,12 @@ export default async function EventDetailPage({
         </div>
       )}
 
-      {event.cover_image_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={event.cover_image_url}
-          alt=""
-          className="mb-6 aspect-[16/9] w-full rounded-lg object-cover"
-        />
-      )}
+      <EventCover
+        coverImageUrl={event.cover_image_url}
+        category={event.category}
+        hasFoodStalls={event.has_food_stalls}
+        className="mb-6 aspect-[16/9] w-full rounded-lg"
+      />
 
       <header className="mb-6 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -431,17 +432,12 @@ export default async function EventDetailPage({
                 <li key={r.id}>
                   <Link href={`/events/${r.id}`} className="group block">
                     <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-md">
-                      {r.cover_image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={r.cover_image_url}
-                          alt=""
-                          className="h-28 w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="h-28 w-full bg-muted" />
-                      )}
+                      <EventCover
+                        coverImageUrl={r.cover_image_url}
+                        category={r.category}
+                        hasFoodStalls={r.has_food_stalls}
+                        className="h-28 w-full"
+                      />
                       <CardContent className="flex flex-col gap-1 p-3">
                         <time className="text-xs text-muted-foreground">
                           {formatEventDateTime(r.starts_at)}

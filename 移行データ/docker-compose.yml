@@ -1,0 +1,30 @@
+# ============================================================
+# Cue 本番 docker-compose
+# 使い方: プロジェクトルートにコピー →  docker compose up -d --build
+# 同じ場所に .env.local を置いておくこと（env_file で読み込む）。
+# ============================================================
+
+services:
+  cue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # NEXT_PUBLIC_* はビルド時に埋め込まれるので build args でも渡す
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+    container_name: cue
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    ports:
+      # 左がサーバー側。Nginx から localhost:3000 へプロキシする想定。
+      - "127.0.0.1:3000:3000"
+    # ヘルスチェック（トップが200を返すか）
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

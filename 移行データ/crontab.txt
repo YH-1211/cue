@@ -1,0 +1,27 @@
+# ============================================================
+# Cue 定期実行（Vercel Cron の置き換え）
+# 使い方: 「your-domain.example.com」と「あなたのCRON_SECRET」を書き換えて
+#         crontab -e に貼り付ける。
+#
+# 元の vercel.json の設定（すべて UTC 基準）:
+#   通知 notify : 0 0 * * *  （UTC 0:00 = 日本 9:00）
+#   通知 notify : 0 10 * * * （UTC 10:00 = 日本 19:00）
+#   収集 ingest : 0 18 * * * （UTC 18:00 = 日本 翌3:00）
+#
+# ⏰ 注意: システムcronは「サーバーのローカル時刻」で動く。
+#   - サーバーがUTC運用なら、下の時刻をそのまま使う。
+#   - サーバーが日本時間(JST)運用なら、() 内の日本時間に読み替えて使う。
+#     （下の例はサーバーUTC前提。JSTなら 0→9時, 10→19時, 18→3時 に直す）
+#
+# 認証: アプリ側は Authorization: Bearer <CRON_SECRET> を検証する。
+#   -f を付けて失敗時に通知/ログを残す。タイムアウトも付与。
+# ============================================================
+
+# 通知バッチ（朝）
+0 0 * * *  curl -fsS -m 60 -X GET "https://your-domain.example.com/api/cron/notify" -H "Authorization: Bearer あなたのCRON_SECRET" >> /var/log/cue-cron.log 2>&1
+
+# 通知バッチ（夜）
+0 10 * * * curl -fsS -m 60 -X GET "https://your-domain.example.com/api/cron/notify" -H "Authorization: Bearer あなたのCRON_SECRET" >> /var/log/cue-cron.log 2>&1
+
+# イベント自動収集
+0 18 * * * curl -fsS -m 300 -X GET "https://your-domain.example.com/api/cron/ingest" -H "Authorization: Bearer あなたのCRON_SECRET" >> /var/log/cue-cron.log 2>&1

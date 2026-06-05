@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { NearbyEvents } from "@/components/nearby-events";
+import { EventCover } from "@/components/event-cover";
 import { HomeInterestEditor } from "./home-interest-editor";
 import {
   CATEGORY_LABELS,
@@ -19,6 +20,7 @@ type EventRow = {
   area: string | null;
   category: EventCategory;
   cover_image_url: string | null;
+  has_food_stalls: boolean | null;
 };
 
 export default async function Home() {
@@ -45,7 +47,9 @@ export default async function Home() {
   // 興味タグがあれば、対象カテゴリを優先取得 (それ以外は不足分を補う)
   const { data } = await supabase
     .from("events")
-    .select("id, title, starts_at, venue_name, area, category, cover_image_url")
+    .select(
+      "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls",
+    )
     .eq("approved", true)
     .gte("effective_end", new Date().toISOString())
     .order("starts_at", { ascending: true })
@@ -140,17 +144,12 @@ export default async function Home() {
                   className="group block focus:outline-none"
                 >
                   <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
-                    {event.cover_image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={event.cover_image_url}
-                        alt=""
-                        className="h-40 w-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="h-40 w-full bg-muted" />
-                    )}
+                    <EventCover
+                      coverImageUrl={event.cover_image_url}
+                      category={event.category}
+                      hasFoodStalls={event.has_food_stalls}
+                      className="h-40 w-full"
+                    />
                     <CardContent className="flex flex-col gap-2 p-4">
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary">

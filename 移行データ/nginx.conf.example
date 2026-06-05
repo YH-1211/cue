@@ -1,0 +1,46 @@
+# ============================================================
+# Cue 用 Nginx リバースプロキシ設定（例）
+# 使い方:
+#   1) your-domain.example.com を自分のドメインに書き換え
+#   2) /etc/nginx/sites-available/cue に保存 → sites-enabled へリンク
+#   3) sudo nginx -t && sudo systemctl reload nginx
+#   4) HTTPSは certbot で付与:
+#        sudo certbot --nginx -d your-domain.example.com -d www.your-domain.example.com
+#      （certbot が下の server ブロックを自動で443対応に書き換える）
+# ============================================================
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name your-domain.example.com www.your-domain.example.com;
+
+    # 写真アップロード（サーバーアクション bodySizeLimit 35mb）に合わせる。
+    # これが無いと大きい画像投稿が 413 エラーになる。
+    client_max_body_size 35m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        # WebSocket / SSE 対応
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # 正しいホスト/プロトコルをアプリに伝える（認証リダイレクトに重要）
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+
+        proxy_read_timeout 300s;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Next.js の静的ファイルは長期キャッシュ
+    location /_next/static/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_cache_valid 200 60m;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+}
