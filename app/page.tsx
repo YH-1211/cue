@@ -9,6 +9,8 @@ import { HomeInterestEditor } from "./home-interest-editor";
 import {
   CATEGORY_LABELS,
   formatEventDateTime,
+  categoriesUnderParent,
+  isParentCategory,
   type EventCategory,
 } from "@/lib/events";
 
@@ -44,6 +46,14 @@ export default async function Home() {
 
   const hasInterests = interestCategories.length > 0;
 
+  // 興味タグを「親→配下サブ」に展開した一致判定用セット。
+  // 例: 「祭り」(festival) を選ぶと festival_shrine 等のサブも一致させる。
+  const interestMatchSet = new Set<string>(
+    interestCategories.flatMap((c) =>
+      isParentCategory(c) ? categoriesUnderParent(c) : [c]
+    )
+  );
+
   // 興味タグがあれば、対象カテゴリを優先取得 (それ以外は不足分を補う)
   const { data } = await supabase
     .from("events")
@@ -59,12 +69,8 @@ export default async function Home() {
 
   let events: EventRow[];
   if (hasInterests) {
-    const matched = allEvents.filter((e) =>
-      interestCategories.includes(e.category)
-    );
-    const others = allEvents.filter(
-      (e) => !interestCategories.includes(e.category)
-    );
+    const matched = allEvents.filter((e) => interestMatchSet.has(e.category));
+    const others = allEvents.filter((e) => !interestMatchSet.has(e.category));
     events = [...matched, ...others].slice(0, 6);
   } else {
     events = allEvents.slice(0, 6);
