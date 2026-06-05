@@ -11,7 +11,7 @@ import {
   SUBCATEGORIES,
   SUBCATEGORY_LABELS,
   categoriesUnderParent,
-  formatEventDateTime,
+  eventScheduleLabel,
   isEventCategory,
   isParentCategory,
   parentOf,
@@ -24,6 +24,7 @@ type EventRow = {
   id: string;
   title: string;
   starts_at: string | null;
+  ends_at: string | null;
   venue_name: string | null;
   area: string | null;
   category: EventCategory;
@@ -56,7 +57,7 @@ export default async function EventsPage({
   let query = supabase
     .from("events")
     .select(
-      "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls",
+      "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls",
     )
     .eq("approved", true)
     .gte("effective_end", new Date().toISOString())
@@ -81,7 +82,7 @@ export default async function EventsPage({
   let tbdQuery = supabase
     .from("events")
     .select(
-      "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls",
+      "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls",
     )
     .eq("approved", true)
     .is("starts_at", null)
@@ -242,9 +243,20 @@ function EventCard({ event }: { event: EventRow }) {
                 {CATEGORY_LABELS[event.category]}
               </Badge>
               {event.starts_at ? (
-                <time className="text-xs text-muted-foreground">
-                  {formatEventDateTime(event.starts_at)}
-                </time>
+                (() => {
+                  const s = eventScheduleLabel(event.starts_at, event.ends_at);
+                  return (
+                    <time
+                      className={`text-xs ${
+                        s.ongoing
+                          ? "font-medium text-emerald-600"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {s.text}
+                    </time>
+                  );
+                })()
               ) : (
                 <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                   日程未定

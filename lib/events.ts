@@ -186,3 +186,44 @@ export function formatEventDateTime(iso: string): string {
 export function formatEventDate(iso: string): string {
   return dateOnlyFormatter.format(new Date(iso));
 }
+
+const shortDateFormatter = new Intl.DateTimeFormat("ja-JP", {
+  month: "numeric",
+  day: "numeric",
+  timeZone: "Asia/Tokyo",
+});
+
+// Asia/Tokyo での YYYY-MM-DD 文字列 (同日判定用)
+function tokyoDateKey(iso: string): string {
+  return new Date(iso).toLocaleDateString("sv-SE", {
+    timeZone: "Asia/Tokyo",
+  });
+}
+
+// イベントの日程ラベル。会期もの(開始〜終了)が開催中なら「開催中」を示す。
+// - starts_at が無い: 日程調整中
+// - 開催中(now が starts_at〜ends_at の間): { ongoing:true, text:"開催中・〜M/D まで" }
+// - それ以外(未来 or 単日): 通常の日時表示
+export function eventScheduleLabel(
+  startsAt: string | null,
+  endsAt: string | null
+): { text: string; ongoing: boolean } {
+  if (!startsAt) return { text: "日程調整中", ongoing: false };
+
+  const now = Date.now();
+  const start = new Date(startsAt).getTime();
+  const end = endsAt ? new Date(endsAt).getTime() : start;
+
+  if (now >= start && now <= end) {
+    // 終了日が開始日と別日なら「〜M/D まで」を付ける
+    const multiDay = endsAt && tokyoDateKey(startsAt) !== tokyoDateKey(endsAt);
+    return {
+      text: multiDay
+        ? `開催中・${shortDateFormatter.format(new Date(endsAt!))} まで`
+        : "開催中",
+      ongoing: true,
+    };
+  }
+
+  return { text: dateFormatter.format(new Date(startsAt)), ongoing: false };
+}

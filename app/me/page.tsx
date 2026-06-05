@@ -15,7 +15,7 @@ import { SITE } from "@/lib/site";
 import { EventCover } from "@/components/event-cover";
 import {
   CATEGORY_LABELS,
-  formatEventDateTime,
+  eventScheduleLabel,
   type EventCategory,
 } from "@/lib/events";
 
@@ -55,6 +55,7 @@ type SavedEventRow = {
     category: EventCategory;
     cover_image_url: string | null;
     has_food_stalls: boolean | null;
+    ends_at: string | null;
   } | null;
 };
 
@@ -67,6 +68,7 @@ type SubmittedEventRow = {
   category: EventCategory;
   cover_image_url: string | null;
   has_food_stalls: boolean | null;
+  ends_at: string | null;
   approved: boolean;
   created_at: string;
 };
@@ -114,7 +116,7 @@ export default async function MePage() {
         `
           created_at,
           events (
-            id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls
+            id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls
           )
         `
       )
@@ -123,7 +125,7 @@ export default async function MePage() {
     supabase
       .from("events")
       .select(
-        "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls, approved, created_at"
+        "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls, approved, created_at"
       )
       .eq("submitted_by", user.id)
       .eq("source_type", "user")
@@ -266,9 +268,23 @@ export default async function MePage() {
                         {CATEGORY_LABELS[event.category]}
                       </Badge>
                       {event.starts_at ? (
-                        <time className="text-xs text-muted-foreground">
-                          {formatEventDateTime(event.starts_at)}
-                        </time>
+                        (() => {
+                          const s = eventScheduleLabel(
+                            event.starts_at,
+                            event.ends_at
+                          );
+                          return (
+                            <time
+                              className={`text-xs ${
+                                s.ongoing
+                                  ? "font-medium text-emerald-600"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {s.text}
+                            </time>
+                          );
+                        })()
                       ) : (
                         <span className="text-xs text-muted-foreground">
                           日程未定
@@ -342,9 +358,23 @@ export default async function MePage() {
                       >
                         {event.approved ? "公開中" : "承認待ち"}
                       </Badge>
-                      <time className="text-xs text-muted-foreground">
-                        {formatEventDateTime(event.starts_at)}
-                      </time>
+                      {(() => {
+                        const s = eventScheduleLabel(
+                          event.starts_at,
+                          event.ends_at
+                        );
+                        return (
+                          <time
+                            className={`text-xs ${
+                              s.ongoing
+                                ? "font-medium text-emerald-600"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {s.text}
+                          </time>
+                        );
+                      })()}
                     </div>
                     <p className="line-clamp-2 text-sm font-semibold">
                       {event.title}

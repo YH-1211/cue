@@ -6,7 +6,7 @@ import { EventCover } from "@/components/event-cover";
 import {
   CATEGORY_LABELS,
   categoriesUnderParent,
-  formatEventDateTime,
+  eventScheduleLabel,
   isEventCategory,
   isParentCategory,
   type EventCategory,
@@ -32,6 +32,7 @@ type EventRow = {
   category: EventCategory;
   cover_image_url: string | null;
   has_food_stalls: boolean | null;
+  ends_at: string | null;
 };
 
 type SearchParams = {
@@ -335,9 +336,23 @@ function SearchListView({
                         <Badge variant="secondary">
                           {CATEGORY_LABELS[event.category]}
                         </Badge>
-                        <time className="text-xs text-muted-foreground">
-                          {formatEventDateTime(event.starts_at)}
-                        </time>
+                        {(() => {
+                          const s = eventScheduleLabel(
+                            event.starts_at,
+                            event.ends_at
+                          );
+                          return (
+                            <time
+                              className={`text-xs ${
+                                s.ongoing
+                                  ? "font-medium text-emerald-600"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {s.text}
+                            </time>
+                          );
+                        })()}
                       </div>
                       <h2 className="line-clamp-2 text-base font-semibold leading-snug">
                         {event.title}

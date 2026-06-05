@@ -8,7 +8,7 @@ import { EventCover } from "@/components/event-cover";
 import { HomeInterestEditor } from "./home-interest-editor";
 import {
   CATEGORY_LABELS,
-  formatEventDateTime,
+  eventScheduleLabel,
   categoriesUnderParent,
   isParentCategory,
   type EventCategory,
@@ -18,6 +18,7 @@ type EventRow = {
   id: string;
   title: string;
   starts_at: string;
+  ends_at: string | null;
   venue_name: string | null;
   area: string | null;
   category: EventCategory;
@@ -55,7 +56,7 @@ export default async function Home() {
   );
 
   const SELECT =
-    "id, title, starts_at, venue_name, area, category, cover_image_url, has_food_stalls";
+    "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls";
   const nowIso = new Date().toISOString();
 
   // 興味タグがあれば、対象カテゴリのイベントをDBから直接優先取得し、
@@ -188,9 +189,23 @@ export default async function Home() {
                               おすすめ
                             </Badge>
                           )}
-                        <time className="text-xs text-muted-foreground">
-                          {formatEventDateTime(event.starts_at)}
-                        </time>
+                        {(() => {
+                          const s = eventScheduleLabel(
+                            event.starts_at,
+                            event.ends_at
+                          );
+                          return (
+                            <time
+                              className={`text-xs ${
+                                s.ongoing
+                                  ? "font-medium text-emerald-600"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {s.text}
+                            </time>
+                          );
+                        })()}
                       </div>
                       <h3 className="line-clamp-2 text-base font-semibold leading-snug">
                         {event.title}
