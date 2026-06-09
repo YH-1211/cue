@@ -23,6 +23,7 @@ const ADMIN_LINKS = [
   { href: "/admin/sources", label: "🔌 取り込みソース" },
   { href: "/admin/news", label: "📰 ニュース管理" },
   { href: "/admin/contact", label: "✉️ お問い合わせ" },
+  { href: "/admin/admins", label: "👤 管理者" },
   { href: "/admin/cron", label: "📊 Cron 実行履歴" },
 ];
 
