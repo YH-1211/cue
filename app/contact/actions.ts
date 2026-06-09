@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
+import { sendPushToAdmins } from "@/lib/web-push";
 
 export type ContactState =
   | { status: "idle" }
@@ -12,6 +14,13 @@ export type ContactState =
   | { status: "success" };
 
 const CATEGORIES = new Set(["bug", "request", "event", "account", "other"]);
+const CATEGORY_LABELS: Record<string, string> = {
+  bug: "不具合",
+  request: "要望",
+  event: "イベント",
+  account: "アカウント",
+  other: "その他",
+};
 const MAX_NAME = 100;
 const MAX_EMAIL = 200;
 const MAX_BODY = 4000;
@@ -89,6 +98,19 @@ export async function submitContact(
       message: `送信に失敗しました: ${error.message}`,
       values,
     };
+  }
+
+  // 管理者へ push 通知（失敗しても問い合わせ自体は成功扱いにする）
+  try {
+    const admin = createAdminClient();
+    await sendPushToAdmins(admin, {
+      title: "新しいお問い合わせ",
+      body: `${CATEGORY_LABELS[category] ?? category}: ${name}さんから`,
+      url: "/admin/contact",
+      tag: "contact",
+    });
+  } catch (e) {
+    console.error("admin push notify failed", e);
   }
 
   return { status: "success" };

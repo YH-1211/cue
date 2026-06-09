@@ -71,3 +71,32 @@ export async function sendPushToUser(
 
   return success;
 }
+
+/**
+ * ADMIN_EMAIL に登録された管理者全員へ push 通知を送る。
+ * メールアドレスは user_ids_by_email RPC で user_id に解決する。
+ * @returns 送信成功数
+ */
+export async function sendPushToAdmins(
+  admin: SupabaseClient,
+  payload: PushPayload
+): Promise<number> {
+  const emails = (process.env.ADMIN_EMAIL ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (emails.length === 0) return 0;
+
+  const { data: ids, error } = await admin.rpc("user_ids_by_email", {
+    p_emails: emails,
+  });
+  if (error || !ids || ids.length === 0) return 0;
+
+  let success = 0;
+  await Promise.all(
+    (ids as { id: string }[]).map(async ({ id }) => {
+      success += await sendPushToUser(admin, id, payload);
+    })
+  );
+  return success;
+}
