@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { isAdmin } from "@/lib/admin";
+import { isAdmin, isRootAdmin } from "@/lib/admin";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -164,6 +164,7 @@ export default async function MePage() {
 
   // 管理者なら未承認イベント件数を取得
   const admin = await isAdmin();
+  const root = admin ? await isRootAdmin() : false;
   let pendingCount = 0;
   if (admin) {
     const { count } = await createAdminClient()
@@ -221,7 +222,7 @@ export default async function MePage() {
             </span>
             <span className="text-xl font-bold tabular-nums">{points}</span>
           </div>
-          <SettingsMenu admin={admin} pendingCount={pendingCount} />
+          <SettingsMenu admin={admin} root={root} pendingCount={pendingCount} />
         </div>
       </header>
 

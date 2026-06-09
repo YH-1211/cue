@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { requireAdmin, rootAdminEmails } from "@/lib/admin";
+import { requireRootAdmin, rootAdminEmails } from "@/lib/admin";
 
 export type AddAdminState =
   | { status: "idle" }
@@ -16,7 +16,7 @@ export async function addAdmin(
   _prev: AddAdminState,
   formData: FormData
 ): Promise<AddAdminState> {
-  await requireAdmin();
+  await requireRootAdmin();
 
   const raw = formData.get("email");
   const email = (typeof raw === "string" ? raw : "").trim().toLowerCase();
@@ -51,7 +51,7 @@ export async function addAdmin(
 }
 
 export async function removeAdmin(email: string) {
-  await requireAdmin();
+  await requireRootAdmin();
   const admin = createAdminClient();
   const { error } = await admin
     .from("admin_users")

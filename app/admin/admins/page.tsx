@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireAdmin, rootAdminEmails } from "@/lib/admin";
+import { requireRootAdmin, rootAdminEmails } from "@/lib/admin";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { Badge } from "@/components/ui/badge";
 import { AddForm } from "./add-form";
@@ -24,7 +24,7 @@ const dateFormatter = new Intl.DateTimeFormat("ja-JP", {
 
 export default async function AdminAdminsPage() {
   try {
-    await requireAdmin();
+    await requireRootAdmin();
   } catch {
     redirect("/me");
   }

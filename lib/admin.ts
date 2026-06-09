@@ -40,3 +40,23 @@ export async function requireAdmin(): Promise<void> {
   const ok = await isAdmin();
   if (!ok) notFound();
 }
+
+// ルート管理者 (環境変数 ADMIN_EMAIL) かどうか。
+// 管理者の追加・削除など、最上位の操作を絞るために使う。
+export async function isRootAdmin(): Promise<boolean> {
+  const roots = rootAdminEmails();
+  if (roots.length === 0) return false;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const email = user?.email?.toLowerCase();
+  if (!email) return false;
+  return roots.includes(email);
+}
+
+// ルート管理者でなければ 404
+export async function requireRootAdmin(): Promise<void> {
+  const ok = await isRootAdmin();
+  if (!ok) notFound();
+}

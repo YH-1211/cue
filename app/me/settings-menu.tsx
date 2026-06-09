@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   admin: boolean;
+  root: boolean;
   pendingCount: number;
 };
 
@@ -19,15 +20,15 @@ const SETTINGS_LINKS = [
 ];
 
 const ADMIN_LINKS = [
-  { href: "/admin/moderation", label: "⚙ モデレーション" },
-  { href: "/admin/sources", label: "🔌 取り込みソース" },
-  { href: "/admin/news", label: "📰 ニュース管理" },
-  { href: "/admin/contact", label: "✉️ お問い合わせ" },
-  { href: "/admin/admins", label: "👤 管理者" },
-  { href: "/admin/cron", label: "📊 Cron 実行履歴" },
+  { href: "/admin/moderation", label: "⚙ モデレーション", rootOnly: false },
+  { href: "/admin/sources", label: "🔌 取り込みソース", rootOnly: false },
+  { href: "/admin/news", label: "📰 ニュース管理", rootOnly: false },
+  { href: "/admin/contact", label: "✉️ お問い合わせ", rootOnly: false },
+  { href: "/admin/admins", label: "👤 管理者", rootOnly: true },
+  { href: "/admin/cron", label: "📊 Cron 実行履歴", rootOnly: false },
 ];
 
-export function SettingsMenu({ admin, pendingCount }: Props) {
+export function SettingsMenu({ admin, root, pendingCount }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -78,7 +79,7 @@ export function SettingsMenu({ admin, pendingCount }: Props) {
               <p className="px-4 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
                 管理
               </p>
-              {ADMIN_LINKS.map((l) => (
+              {ADMIN_LINKS.filter((l) => root || !l.rootOnly).map((l) => (
                 <Link
                   key={l.href}
                   href={l.href}
