@@ -11,7 +11,6 @@ import { RankBadge } from "@/components/rank-badge";
 import { BackButton } from "@/components/back-button";
 import { SettingsMenu } from "./settings-menu";
 import { rankFor, nextRank } from "@/lib/rank";
-import { SITE } from "@/lib/site";
 import { EventCover } from "@/components/event-cover";
 import {
   CATEGORY_LABELS,
@@ -573,13 +572,13 @@ export default async function MePage() {
             <span className="text-muted-foreground">→</span>
           </Link>
           <Separator />
-          <a
-            href={`mailto:${SITE.contactEmail}`}
+          <Link
+            href="/contact"
             className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
           >
             お問い合わせ
             <span className="text-muted-foreground">→</span>
-          </a>
+          </Link>
           <Separator />
           <Link
             href="/credits"

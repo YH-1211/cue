@@ -20,12 +20,9 @@ export function Footer() {
             <Link href="/privacy" className="hover:text-foreground">
               プライバシーポリシー
             </Link>
-            <a
-              href={`mailto:${SITE.contactEmail}`}
-              className="hover:text-foreground"
-            >
+            <Link href="/contact" className="hover:text-foreground">
               お問い合わせ
-            </a>
+            </Link>
           </nav>
         </div>
         <p className="mt-6 text-xs text-muted-foreground">
