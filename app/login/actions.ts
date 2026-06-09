@@ -45,6 +45,56 @@ export async function sendMagicLink(
   return { status: "success", email };
 }
 
+export type VerifyState =
+  | { status: "idle" }
+  | { status: "error"; message: string };
+
+// メールに届いた確認コードでログインする。
+// PWA (ホーム追加アプリ) ではリンクが別ブラウザで開きセッションが
+// 共有されないため、アプリ内で完結するコード入力が確実。
+export async function verifyEmailOtp(
+  _prev: VerifyState,
+  formData: FormData
+): Promise<VerifyState> {
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  const token = String(formData.get("token") ?? "").replace(/\s/g, "");
+
+  if (!email || !token) {
+    return { status: "error", message: "確認コードを入力してください。" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: "email",
+  });
+  if (error) {
+    return {
+      status: "error",
+      message: "確認コードが正しくないか、有効期限が切れています。",
+    };
+  }
+
+  // オンボーディング未完了なら誘導
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarded_at")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!profile?.onboarded_at) {
+      redirect("/onboarding");
+    }
+  }
+  redirect("/me");
+}
+
 export type OAuthResult = { url?: string; error?: string };
 
 export async function signInWithGoogle(): Promise<OAuthResult> {

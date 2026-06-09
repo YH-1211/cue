@@ -1,17 +1,28 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { sendMagicLink, signInWithGoogle, type LoginState } from "./actions";
+import {
+  sendMagicLink,
+  verifyEmailOtp,
+  signInWithGoogle,
+  type LoginState,
+  type VerifyState,
+} from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const initialState: LoginState = { status: "idle" };
+const initialVerify: VerifyState = { status: "idle" };
 
 export function LoginForm() {
   const [state, formAction, pending] = useActionState(
     sendMagicLink,
     initialState
+  );
+  const [verifyState, verifyAction, verifyPending] = useActionState(
+    verifyEmailOtp,
+    initialVerify
   );
   const [googlePending, startGoogle] = useTransition();
   const [googleError, setGoogleError] = useState<string | null>(null);
@@ -32,14 +43,48 @@ export function LoginForm() {
 
   if (state.status === "success") {
     return (
-      <div className="rounded-lg border border-border bg-card p-6 text-sm">
-        <p className="font-medium">📬 確認メールを送信しました</p>
-        <p className="mt-2 text-muted-foreground">
-          <span className="font-mono">{state.email}</span> 宛にログインリンクを送りました。
-          受信トレイを確認し、リンクをクリックしてください。
-        </p>
-        <p className="mt-3 text-xs text-muted-foreground">
-          メールが届かない場合は迷惑メールフォルダもご確認ください。
+      <div className="flex flex-col gap-4">
+        <div className="rounded-lg border border-border bg-card p-6 text-sm">
+          <p className="font-medium">📬 確認メールを送信しました</p>
+          <p className="mt-2 text-muted-foreground">
+            <span className="font-mono">{state.email}</span>{" "}
+            宛にログイン用の<strong>確認コード</strong>とリンクを送りました。
+          </p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            メールが届かない場合は迷惑メールフォルダもご確認ください。
+          </p>
+        </div>
+
+        <form action={verifyAction} className="flex flex-col gap-4">
+          <input type="hidden" name="email" value={state.email} />
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="token">確認コード</Label>
+            <Input
+              id="token"
+              name="token"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              required
+              placeholder="メールに記載のコード"
+              disabled={verifyPending}
+            />
+          </div>
+
+          {verifyState.status === "error" && (
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {verifyState.message}
+            </p>
+          )}
+
+          <Button type="submit" size="lg" disabled={verifyPending}>
+            {verifyPending ? "確認中..." : "コードでログイン"}
+          </Button>
+        </form>
+
+        <p className="text-xs text-muted-foreground">
+          ホーム画面に追加したアプリでログインする場合は、メール内のリンクではなく
+          上の<strong>確認コード入力</strong>をご利用ください（リンクは別ブラウザで開くため、
+          アプリ側にログインが反映されません）。
         </p>
       </div>
     );
@@ -95,7 +140,7 @@ export function LoginForm() {
       </form>
 
       <p className="text-xs text-muted-foreground">
-        パスワードは不要です。Google アカウント、またはメールに届くリンクからログインできます。
+        パスワードは不要です。Google アカウント、またはメールに届く確認コード／リンクからログインできます。
       </p>
     </div>
   );
