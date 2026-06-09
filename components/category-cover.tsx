@@ -15,6 +15,22 @@ const IMAGES: Record<ParentCategory, string> = {
   sports: "/categories/sports.jpg",
 };
 
+// サブカテゴリー専用画像。より内容に合った写真がある分だけ用意し、
+// 無いサブカテゴリーは親カテゴリーの画像にフォールバックする。
+const SUB_IMAGES: Partial<Record<EventCategory, string>> = {
+  sports_baseball: "/categories/sports_baseball.jpg",
+  sports_soccer: "/categories/sports_soccer.jpg",
+  sports_basketball: "/categories/sports_basketball.jpg",
+  sports_marathon: "/categories/sports_marathon.jpg",
+  festival_hanabi: "/categories/festival_hanabi.jpg",
+  music_classic: "/categories/music_classic.jpg",
+  music_jazz: "/categories/music_jazz.jpg",
+  music_rock: "/categories/music_rock.jpg",
+  art_contemporary: "/categories/art_contemporary.jpg",
+  art_photo: "/categories/art_photo.jpg",
+  art_craft: "/categories/art_craft.jpg",
+};
+
 export function CategoryCover({
   category,
   className,
@@ -22,7 +38,7 @@ export function CategoryCover({
   category: EventCategory;
   className?: string;
 }) {
-  const src = IMAGES[parentOf(category)];
+  const src = SUB_IMAGES[category] ?? IMAGES[parentOf(category)];
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
