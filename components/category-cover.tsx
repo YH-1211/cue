@@ -22,6 +22,7 @@ const SUB_IMAGES: Partial<Record<EventCategory, string>> = {
   sports_soccer: "/categories/sports_soccer.jpg",
   sports_basketball: "/categories/sports_basketball.jpg",
   sports_marathon: "/categories/sports_marathon.jpg",
+  sports_sumo: "/categories/sports_sumo.jpg",
   festival_hanabi: "/categories/festival_hanabi.jpg",
   music_classic: "/categories/music_classic.jpg",
   music_jazz: "/categories/music_jazz.jpg",

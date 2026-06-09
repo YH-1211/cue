@@ -580,6 +580,14 @@ export default async function MePage() {
             お問い合わせ
             <span className="text-muted-foreground">→</span>
           </a>
+          <Separator />
+          <Link
+            href="/credits"
+            className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
+          >
+            画像クレジット
+            <span className="text-muted-foreground">→</span>
+          </Link>
         </nav>
       </section>
     </div>
