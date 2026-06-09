@@ -29,6 +29,14 @@ const SUB_IMAGES: Partial<Record<EventCategory, string>> = {
   art_contemporary: "/categories/art_contemporary.jpg",
   art_photo: "/categories/art_photo.jpg",
   art_craft: "/categories/art_craft.jpg",
+  festival_shrine: "/categories/festival_shrine.jpg",
+  festival_ennichi: "/categories/festival_ennichi.jpg",
+  festival_natsu: "/categories/festival_natsu.jpg",
+  seasonal_koyo: "/categories/seasonal_koyo.jpg",
+  seasonal_xmas: "/categories/seasonal_xmas.jpg",
+  seasonal_illumi: "/categories/seasonal_illumi.jpg",
+  // 初詣は神社の画像（鳥居）を流用
+  seasonal_hatsumode: "/categories/festival_shrine.jpg",
 };
 
 export function CategoryCover({
