@@ -1,22 +1,30 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/admin";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { isEventCategory } from "@/lib/events";
 import { extractEventFromUrl } from "@/lib/extract-event";
-import type { FetchUrlResult } from "@/components/events/event-form";
+import type {
+  EventFormState,
+  FetchUrlResult,
+} from "@/components/events/event-form";
 
-// URL を1本受け取り、ページからイベント情報を抽出してフォーム自動入力用に返す。
-// ログインユーザーのみ (投稿者しか叩かないので軽い保護)。
-export async function fetchEventFromUrl(url: string): Promise<FetchUrlResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { status: "error", message: "ログインが必要です。" };
-  }
+const MAX_TITLE_LEN = 120;
+const MAX_DESCRIPTION_LEN = 4000;
+const MAX_URL_LEN = 500;
+
+function readString(formData: FormData, key: string): string {
+  const v = formData.get(key);
+  return typeof v === "string" ? v.trim() : "";
+}
+
+// URL からイベント情報を抽出 (管理者専用)。
+export async function fetchEventFromUrlAdmin(
+  url: string
+): Promise<FetchUrlResult> {
+  await requireAdmin();
   const trimmed = url.trim();
   if (!trimmed) {
     return { status: "error", message: "URL を入力してください。" };
@@ -28,31 +36,17 @@ export async function fetchEventFromUrl(url: string): Promise<FetchUrlResult> {
   return { status: "success", data: result.data };
 }
 
-export type SubmitState =
-  | { status: "idle" }
-  | { status: "error"; message: string; values?: Record<string, string> }
-  | { status: "success"; eventId: string };
-
-const MAX_TITLE_LEN = 120;
-const MAX_DESCRIPTION_LEN = 4000;
-const MAX_URL_LEN = 500;
-
-function readString(formData: FormData, key: string): string {
-  const v = formData.get(key);
-  return typeof v === "string" ? v.trim() : "";
-}
-
-export async function submitEvent(
-  _prev: SubmitState,
+// 管理者がイベントを直接作成する。承認済み (approved:true) で即公開。
+export async function createEventByAdmin(
+  _prev: EventFormState,
   formData: FormData
-): Promise<SubmitState> {
+): Promise<EventFormState> {
+  await requireAdmin();
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    redirect("/login?next=/events/new");
-  }
 
   const title = readString(formData, "title");
   const description = readString(formData, "description");
@@ -102,11 +96,7 @@ export async function submitEvent(
     };
   }
   if (!isEventCategory(category)) {
-    return {
-      status: "error",
-      message: "カテゴリを選択してください。",
-      values,
-    };
+    return { status: "error", message: "カテゴリを選択してください。", values };
   }
   if (!startsAt) {
     return { status: "error", message: "開催日時を入力してください。", values };
@@ -174,10 +164,9 @@ export async function submitEvent(
     }
   }
 
-  // source_id は user 投稿の重複防止用 (user-uuid-timestamp)
-  const sourceId = `user-${user.id}-${Date.now()}`;
-
-  const { data, error } = await supabase
+  const admin = createAdminClient();
+  const sourceId = `admin-${Date.now()}`;
+  const { data, error } = await admin
     .from("events")
     .insert({
       title,
@@ -192,10 +181,10 @@ export async function submitEvent(
       official_url: officialUrl,
       ticket_sale_starts_at: ticketSaleIso,
       is_free: isFree,
-      source_type: "user",
+      source_type: "admin",
       source_id: sourceId,
-      submitted_by: user.id,
-      approved: false,
+      submitted_by: user?.id ?? null,
+      approved: true,
     })
     .select("id")
     .single();
@@ -203,12 +192,12 @@ export async function submitEvent(
   if (error || !data) {
     return {
       status: "error",
-      message: error?.message ?? "投稿に失敗しました。",
+      message: error?.message ?? "作成に失敗しました。",
       values,
     };
   }
 
-  revalidatePath("/me");
   revalidatePath("/events");
+  revalidatePath("/admin/moderation");
   return { status: "success", eventId: data.id };
 }

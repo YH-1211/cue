@@ -20,6 +20,7 @@ const SETTINGS_LINKS = [
 ];
 
 const ADMIN_LINKS = [
+  { href: "/admin/events/new", label: "➕ イベント作成", rootOnly: false },
   { href: "/admin/moderation", label: "⚙ モデレーション", rootOnly: false },
   { href: "/admin/sources", label: "🔌 取り込みソース", rootOnly: false },
   { href: "/admin/news", label: "📰 ニュース管理", rootOnly: false },
