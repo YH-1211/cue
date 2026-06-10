@@ -165,6 +165,8 @@ export async function createEventByAdmin(
   }
 
   const admin = createAdminClient();
+  // event_source enum は api/rss/user/ical のみ。管理者作成は手動キュレーションなので user 扱い
+  // (source_id の "admin-" 接頭辞と approved:true で区別)。
   const sourceId = `admin-${Date.now()}`;
   const { data, error } = await admin
     .from("events")
@@ -181,7 +183,7 @@ export async function createEventByAdmin(
       official_url: officialUrl,
       ticket_sale_starts_at: ticketSaleIso,
       is_free: isFree,
-      source_type: "admin",
+      source_type: "user",
       source_id: sourceId,
       submitted_by: user?.id ?? null,
       approved: true,
