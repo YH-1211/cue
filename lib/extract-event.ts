@@ -3,11 +3,15 @@
 // - フォールバック: OGP / Twitter Card (og:title, og:image, og:description) と <title>
 // 取れなかった項目は null。フォーム自動入力 (ユーザー投稿・管理画面の両方) で共有して使う。
 
+import { inferCategory, type EventCategory } from "@/lib/events";
+
 const USER_AGENT = "CueBot/1.0 (+https://cue-taupe-eight.vercel.app)";
 
 export type ExtractedEvent = {
   title: string | null;
   description: string | null;
+  // タイトル・説明から推定したカテゴリー (確信度低、人が確認する前提)。取れなければ null。
+  category: EventCategory | null;
   // datetime-local 用の "YYYY-MM-DDTHH:mm" (JST 壁時計)。フォームにそのまま入る形。
   startsAt: string | null;
   endsAt: string | null;
@@ -25,6 +29,7 @@ export type ExtractResult =
 const EMPTY: ExtractedEvent = {
   title: null,
   description: null,
+  category: null,
   startsAt: null,
   endsAt: null,
   venueName: null,
@@ -129,6 +134,11 @@ export async function extractEventFromUrl(pageUrl: string): Promise<ExtractResul
       matchMeta(html, "twitter:image:src");
     if (og) data.coverImageUrl = absUrl(og, target);
   }
+
+  // タイトル + 説明 + 会場からカテゴリーを推定 (取れた範囲で)
+  data.category = inferCategory(
+    [data.title, data.venueName, data.description].filter(Boolean).join(" ")
+  );
 
   const anyFound =
     data.title ||

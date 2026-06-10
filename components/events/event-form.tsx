@@ -106,6 +106,7 @@ export function EventForm({
       setFields((f) => ({
         ...f,
         title: d.title ?? f.title,
+        category: f.category || d.category || "",
         starts_at: d.startsAt ?? f.starts_at,
         ends_at: d.endsAt ?? f.ends_at,
         venue_name: d.venueName ?? f.venue_name,
