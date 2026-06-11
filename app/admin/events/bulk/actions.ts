@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/admin";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isEventCategory } from "@/lib/events";
+import { jstLocalToIso } from "@/lib/datetime";
 import { extractEventFromUrl } from "@/lib/extract-event";
 
 const MAX_URLS = 20;
@@ -67,15 +68,6 @@ export type PublishResult = {
   inserted: number;
   errors: { label: string; message: string }[];
 };
-
-// datetime-local の文字列 (JST 壁時計、タイムゾーン無し) を JST として ISO に変換。
-function jstLocalToIso(s: string): string | null {
-  const t = s.trim();
-  if (!t) return null;
-  const hasTz = /(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(t);
-  const d = new Date(hasTz ? t : `${t}+09:00`);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
 
 // 選択された下書きをまとめて events に挿入 (approved:true 即公開)。
 // 1件ごとに検証し、不正な行はスキップしてエラーとして報告する。

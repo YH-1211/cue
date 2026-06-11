@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/admin";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isEventCategory } from "@/lib/events";
+import { jstLocalToIso } from "@/lib/datetime";
 import { extractEventFromUrl } from "@/lib/extract-event";
 import type {
   EventFormState,
@@ -101,8 +102,8 @@ export async function createEventByAdmin(
   if (!startsAt) {
     return { status: "error", message: "開催日時を入力してください。", values };
   }
-  const startsAtDate = new Date(startsAt);
-  if (Number.isNaN(startsAtDate.getTime())) {
+  const startsAtIso = jstLocalToIso(startsAt);
+  if (!startsAtIso) {
     return {
       status: "error",
       message: "開催日時の形式が正しくありません。",
@@ -111,34 +112,32 @@ export async function createEventByAdmin(
   }
   let endsAtIso: string | null = null;
   if (endsAt) {
-    const endsAtDate = new Date(endsAt);
-    if (Number.isNaN(endsAtDate.getTime())) {
+    endsAtIso = jstLocalToIso(endsAt);
+    if (!endsAtIso) {
       return {
         status: "error",
         message: "終了日時の形式が正しくありません。",
         values,
       };
     }
-    if (endsAtDate < startsAtDate) {
+    if (endsAtIso < startsAtIso) {
       return {
         status: "error",
         message: "終了日時は開催日時より後を指定してください。",
         values,
       };
     }
-    endsAtIso = endsAtDate.toISOString();
   }
   let ticketSaleIso: string | null = null;
   if (ticketSaleStartsAt) {
-    const tDate = new Date(ticketSaleStartsAt);
-    if (Number.isNaN(tDate.getTime())) {
+    ticketSaleIso = jstLocalToIso(ticketSaleStartsAt);
+    if (!ticketSaleIso) {
       return {
         status: "error",
         message: "チケット発売日時の形式が正しくありません。",
         values,
       };
     }
-    ticketSaleIso = tDate.toISOString();
   }
   if (!officialUrl) {
     return { status: "error", message: "公式URLを入力してください。", values };
@@ -173,7 +172,7 @@ export async function createEventByAdmin(
     .insert({
       title,
       description: description || null,
-      starts_at: startsAtDate.toISOString(),
+      starts_at: startsAtIso,
       ends_at: endsAtIso,
       venue_name: venueName || null,
       address: address || null,
