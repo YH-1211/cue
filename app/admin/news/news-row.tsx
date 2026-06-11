@@ -81,7 +81,9 @@ export function NewsRow({ news }: { news: NewsRowData }) {
                 {news.source_name}
               </span>
               <time className="text-xs text-muted-foreground">
-                {new Date(news.published_at).toLocaleString("ja-JP")}
+                {new Date(news.published_at).toLocaleString("ja-JP", {
+                  timeZone: "Asia/Tokyo",
+                })}
               </time>
             </div>
             <p className="line-clamp-2 text-sm font-semibold">{news.title}</p>

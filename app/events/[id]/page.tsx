@@ -44,6 +44,7 @@ function formatReportDate(iso: string) {
     year: "numeric",
     month: "numeric",
     day: "numeric",
+    timeZone: "Asia/Tokyo",
   });
 }
 

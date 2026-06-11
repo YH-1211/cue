@@ -125,7 +125,10 @@ export default async function ModerationPage() {
             </h2>
 
             <p className="mt-1 text-xs text-muted-foreground">
-              開始: {new Date(ev.starts_at).toLocaleString("ja-JP")}
+              開始:{" "}
+              {new Date(ev.starts_at).toLocaleString("ja-JP", {
+                timeZone: "Asia/Tokyo",
+              })}
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {formatSubmitter(ev, names)}
@@ -198,7 +201,10 @@ export default async function ModerationPage() {
               </h3>
 
               <p className="mt-1 text-xs text-muted-foreground">
-                開始: {new Date(ev.starts_at).toLocaleString("ja-JP")}
+                開始:{" "}
+              {new Date(ev.starts_at).toLocaleString("ja-JP", {
+                timeZone: "Asia/Tokyo",
+              })}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {formatSubmitter(ev, names)}

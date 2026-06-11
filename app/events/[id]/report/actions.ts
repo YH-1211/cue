@@ -101,9 +101,11 @@ export async function submitReport(
     }
     attendedOn = attendedOnRaw;
   } else {
-    // デフォルトは終了日 (なければ開始日)
-    const base = new Date(event.ends_at ?? event.starts_at);
-    attendedOn = base.toISOString().slice(0, 10);
+    // デフォルトは終了日 (なければ開始日)。JST 暦日で算出 (UTC だと早朝開催が前日になる)。
+    attendedOn = new Date(event.ends_at ?? event.starts_at).toLocaleDateString(
+      "sv-SE",
+      { timeZone: "Asia/Tokyo" }
+    );
   }
 
   // 写真ファイル取り出し

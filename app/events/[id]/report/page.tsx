@@ -41,7 +41,9 @@ export default async function ReportPage({
 
   const defaultAttendedOn =
     existing?.attended_on ??
-    new Date(event.ends_at ?? event.starts_at).toISOString().slice(0, 10);
+    new Date(event.ends_at ?? event.starts_at).toLocaleDateString("sv-SE", {
+      timeZone: "Asia/Tokyo",
+    });
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
