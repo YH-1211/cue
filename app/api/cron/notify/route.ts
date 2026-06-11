@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { sendPushToUser } from "@/lib/web-push";
+import { jstParts, jstDateToUtc } from "@/lib/datetime";
 import { CATEGORY_LABELS, type EventCategory } from "@/lib/events";
 import {
   AREA_COORDS,
@@ -78,6 +79,8 @@ export async function GET(req: NextRequest) {
   const admin = createAdminClient();
   const startedAt = new Date();
   const now = startedAt;
+  // cron は UTC で起動するため、時間帯ゲートは必ず JST に換算して判定する。
+  const jst = jstParts(now);
   const result = {
     reminder_eve: 0,
     reminder_morning: 0,
@@ -96,15 +99,15 @@ export async function GET(req: NextRequest) {
   try {
 
   // ============================================
-  // 1) 開催前リマインダー (前夜: 18:00〜23:00 帯で1回)
-  //    現在時刻が 18 時台以降で、明日開催のイベントが対象
+  // 1) 開催前リマインダー (前夜: JST 18 時以降で1回)
+  //    明日 (JST) 開催のイベントが対象
   // ============================================
-  if (now.getHours() >= 18) {
-    const tomorrowStart = new Date(now);
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-    tomorrowStart.setHours(0, 0, 0, 0);
-    const tomorrowEnd = new Date(tomorrowStart);
-    tomorrowEnd.setHours(23, 59, 59, 999);
+  if (jst.hour >= 18) {
+    // JST の明日 0:00 〜 明後日 0:00 (直前) を UTC 範囲で表現
+    const tomorrowStart = jstDateToUtc(jst.year, jst.month, jst.day + 1, 0);
+    const tomorrowEnd = new Date(
+      jstDateToUtc(jst.year, jst.month, jst.day + 2, 0).getTime() - 1
+    );
 
     result.reminder_eve = await sendReminders(admin, {
       kind: "reminder_eve",
@@ -116,13 +119,14 @@ export async function GET(req: NextRequest) {
   }
 
   // ============================================
-  // 2) 当日リマインダー (朝: 7:00〜11:00 帯で1回)
+  // 2) 当日リマインダー (朝: JST 7〜11 時帯で1回)
   // ============================================
-  if (now.getHours() >= 7 && now.getHours() < 12) {
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(now);
-    todayEnd.setHours(23, 59, 59, 999);
+  if (jst.hour >= 7 && jst.hour < 12) {
+    // JST の今日 0:00 〜 明日 0:00 (直前) を UTC 範囲で表現
+    const todayStart = jstDateToUtc(jst.year, jst.month, jst.day, 0);
+    const todayEnd = new Date(
+      jstDateToUtc(jst.year, jst.month, jst.day + 1, 0).getTime() - 1
+    );
 
     result.reminder_morning = await sendReminders(admin, {
       kind: "reminder_morning",
@@ -174,17 +178,17 @@ export async function GET(req: NextRequest) {
   );
 
   // ============================================
-  // 4) 興味マッチ新着 (週1: 月曜 朝 9 時台に1回)
+  // 4) 興味マッチ新着 (週1: JST 月曜 朝 9 時台に1回)
   // ============================================
-  if (now.getDay() === 1 && now.getHours() === 9) {
+  if (jst.dow === 1 && jst.hour === 9) {
     result.interest_weekly = await sendInterestWeekly(admin);
   }
 
   // ============================================
-  // 5) 近隣マッチ (日次: 朝 9 時帯に1回)
+  // 5) 近隣マッチ (日次: JST 朝 9 時帯に1回)
   //    home_area × 興味タグ × 過去24h の新着
   // ============================================
-  if (now.getHours() === 9) {
+  if (jst.hour === 9) {
     result.nearby_match = await sendNearbyMatch(admin);
   }
 
@@ -295,6 +299,7 @@ async function sendReminders(
     const time = new Date(ev.starts_at).toLocaleString("ja-JP", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Asia/Tokyo",
     });
     const place = [ev.area, ev.venue_name].filter(Boolean).join(" / ");
 
@@ -394,6 +399,7 @@ async function sendTicketSale(
         day: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "Asia/Tokyo",
       }),
       url: `/events/${ev.id}`,
       tag: `${kind}:${ev.id}`,
@@ -471,6 +477,7 @@ async function sendTicketSaleEnd(
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Asia/Tokyo",
     });
     const body =
       kind === "ticket_end_over" ? `${when} に販売終了しました` : `締切: ${when}`;
