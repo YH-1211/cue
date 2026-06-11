@@ -96,6 +96,13 @@ async function ingestFeed(admin: Admin, src: IngestSource): Promise<number> {
 const ICAL_HORIZON_DAYS = 365;
 const ICAL_PAST_GRACE_MS = 24 * 60 * 60 * 1000; // 開催中/当日扱いとして過去1日まで許容
 
+// VALUE=DATE (時刻なしの終日指定) は node-ical が UTC 0:00 の Date で返す。
+// そのまま toISOString して保存すると JST 表示で 9:00 にズレるため、その暦日を
+// JST の 0:00 とみなして 9 時間戻す。時刻付き (TZID 有り) の DTSTART は補正不要。
+function jstDateOnly(d: Date): Date {
+  return new Date(d.getTime() - 9 * 60 * 60 * 1000);
+}
+
 // ParameterValue (string | {val} | {params}) を素の文字列に均す
 function icalText(v: unknown): string {
   if (typeof v === "string") return v;
@@ -157,22 +164,39 @@ async function ingestICal(admin: Admin, src: IngestSource): Promise<number> {
     const venue = icalText(ev.location).trim() || null;
     const url = icalText((ev as { url?: unknown }).url).trim() || null;
 
+    // 終日指定 (VALUE=DATE) かどうか。node-ical は dateOnly フラグを Date に付ける。
+    const startDateOnly = Boolean(
+      (ev.start as { dateOnly?: boolean } | undefined)?.dateOnly
+    );
+    const endDateOnly = Boolean(
+      (ev.end as { dateOnly?: boolean } | undefined)?.dateOnly
+    );
+    const conv = (d: Date, dateOnly: boolean) =>
+      dateOnly ? jstDateOnly(d) : d;
+
     // 発生回を列挙 (繰り返しは展開、単発はそのまま1件)
     const instances: { start: Date; end: Date | null }[] = [];
     if (ev.rrule) {
       try {
         for (const inst of ical.expandRecurringEvent(ev, { from, to })) {
           instances.push({
-            start: new Date(inst.start),
-            end: inst.end ? new Date(inst.end) : null,
+            start: conv(new Date(inst.start), startDateOnly),
+            end: inst.end ? conv(new Date(inst.end), endDateOnly) : null,
           });
         }
       } catch {
         // 展開失敗時はベースの開始日だけ拾う
-        if (ev.start) instances.push({ start: new Date(ev.start), end: ev.end ? new Date(ev.end) : null });
+        if (ev.start)
+          instances.push({
+            start: conv(new Date(ev.start), startDateOnly),
+            end: ev.end ? conv(new Date(ev.end), endDateOnly) : null,
+          });
       }
     } else if (ev.start) {
-      instances.push({ start: new Date(ev.start), end: ev.end ? new Date(ev.end) : null });
+      instances.push({
+        start: conv(new Date(ev.start), startDateOnly),
+        end: ev.end ? conv(new Date(ev.end), endDateOnly) : null,
+      });
     }
 
     for (const { start, end } of instances) {
