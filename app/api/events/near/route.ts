@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { nearbyAreas, type AreaName } from "@/lib/tokyo-areas";
+import { startOfTodayJstIso } from "@/lib/datetime";
 
 const DEFAULT_RADIUS_KM = 5;
 const MAX_RADIUS_KM = 20;
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
       "area",
       areas.map((a) => a.area)
     )
-    .gte("starts_at", new Date().toISOString())
+    .gte("starts_at", startOfTodayJstIso())
     .order("starts_at", { ascending: true })
     .limit(limit);
 

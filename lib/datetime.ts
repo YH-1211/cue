@@ -40,3 +40,21 @@ export function jstDateToUtc(
 ): Date {
   return new Date(Date.UTC(year, month, day, hour - 9, 0, 0, 0));
 }
+
+// 「今日の 0:00 (JST)」を UTC の ISO 文字列で返す。
+// イベントの掲載カットオフに使う: effective_end >= この値 を残すと、
+// 開催当日いっぱいは表示され、翌日 0:00 JST に一覧から消える。
+export function startOfTodayJstIso(now: Date = new Date()): string {
+  const { year, month, day } = jstParts(now);
+  return jstDateToUtc(year, month, day, 0).toISOString();
+}
+
+// イベントが「掲載期限切れ (開催日翌日 0:00 JST 以降)」かどうかを判定する。
+// effective = coalesce(ends_at, starts_at)。日程未定 (null) は期限切れ扱いしない。
+export function isEventExpired(
+  effectiveEnd: string | null | undefined,
+  now: Date = new Date()
+): boolean {
+  if (!effectiveEnd) return false;
+  return new Date(effectiveEnd).getTime() < new Date(startOfTodayJstIso(now)).getTime();
+}

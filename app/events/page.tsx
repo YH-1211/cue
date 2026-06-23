@@ -17,6 +17,7 @@ import {
   parentOf,
   type EventCategory,
 } from "@/lib/events";
+import { startOfTodayJstIso } from "@/lib/datetime";
 
 export const metadata = { title: "イベント" };
 
@@ -60,7 +61,7 @@ export default async function EventsPage({
       "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls",
     )
     .eq("approved", true)
-    .gte("effective_end", new Date().toISOString())
+    .gte("effective_end", startOfTodayJstIso())
     .order("starts_at", { ascending: true })
     .limit(50);
 

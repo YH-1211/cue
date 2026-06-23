@@ -17,6 +17,7 @@ import {
   eventScheduleLabel,
   type EventCategory,
 } from "@/lib/events";
+import { isEventExpired } from "@/lib/datetime";
 
 type ReportListRow = {
   id: string;
@@ -158,7 +159,9 @@ export default async function MePage() {
     .map((row) => row.events)
     .filter(
       (e): e is NonNullable<SavedEventRow["events"]> => e !== null
-    );
+    )
+    // 開催日翌日 0:00 JST を過ぎた過去イベントは「行きたい」から除外
+    .filter((e) => !isEventExpired(e.ends_at ?? e.starts_at));
 
   const submittedEvents = (submittedRes.data ?? []) as SubmittedEventRow[];
 

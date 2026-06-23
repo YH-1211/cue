@@ -17,6 +17,7 @@ import {
   formatEventDateTime,
   type EventCategory,
 } from "@/lib/events";
+import { startOfTodayJstIso, isEventExpired } from "@/lib/datetime";
 
 type ReportPhoto = {
   id: string;
@@ -188,16 +189,20 @@ export default async function EventDetailPage({
 
   const hasDate = event.starts_at != null;
   const eventEndIso = event.ends_at ?? event.starts_at;
-  // eslint-disable-next-line react-hooks/purity
+  // Server Component なので描画時の現在時刻取得で問題ない。
+  const now = new Date();
+  const nowMs = now.getTime();
   const isPast =
-    eventEndIso != null && new Date(eventEndIso).getTime() < Date.now();
+    eventEndIso != null && new Date(eventEndIso).getTime() < nowMs;
+  // 掲載期限切れ: 開催日の翌日 0:00 JST を過ぎた状態。
+  // 開催当日いっぱいはアクティブ表示し、翌日からグレーアウト+リンク無効化。
+  const isExpired = isEventExpired(eventEndIso, now);
   const canReport = event.approved && isPast;
 
   // チケット販売終了の判定
-  // eslint-disable-next-line react-hooks/purity
   const ticketSaleEnded =
     event.ticket_sale_ends_at != null &&
-    new Date(event.ticket_sale_ends_at).getTime() < Date.now();
+    new Date(event.ticket_sale_ends_at).getTime() < nowMs;
 
   // 関連イベント (同カテゴリ + 同エリア優先 / 未来 / 自身を除く)
   type RelatedRow = {
@@ -211,7 +216,7 @@ export default async function EventDetailPage({
   };
   let related: RelatedRow[] = [];
   if (event.approved && !isPast) {
-    const nowIso = new Date().toISOString();
+    const nowIso = startOfTodayJstIso(now);
     let relQ = supabase
       .from("events")
       .select("id, title, starts_at, area, cover_image_url, category, has_food_stalls")
@@ -260,11 +265,24 @@ export default async function EventDetailPage({
         </div>
       )}
 
+      {isExpired && (
+        <div className="mb-6 rounded-lg border border-border bg-muted p-4 text-sm text-muted-foreground">
+          <p className="font-semibold text-foreground">
+            このイベントは終了しました
+          </p>
+          <p className="mt-1">
+            開催日を過ぎたため、公式サイトやチケットへのリンクは無効になっています。
+          </p>
+        </div>
+      )}
+
       <EventCover
         coverImageUrl={event.cover_image_url}
         category={event.category}
         hasFoodStalls={event.has_food_stalls}
-        className="mb-6 aspect-[16/9] w-full rounded-lg"
+        className={`mb-6 aspect-[16/9] w-full rounded-lg${
+          isExpired ? " opacity-50 grayscale" : ""
+        }`}
       />
 
       <header className="mb-6 flex flex-col gap-3">
@@ -367,16 +385,26 @@ export default async function EventDetailPage({
       <Separator className="my-8" />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <a
-          href={event.official_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={buttonVariants({ size: "lg" })}
-        >
-          公式サイトへ
-        </a>
+        {isExpired ? (
+          <span
+            className={buttonVariants({ size: "lg" })}
+            aria-disabled="true"
+            style={{ opacity: 0.5, pointerEvents: "none" }}
+          >
+            公式サイト (終了)
+          </span>
+        ) : (
+          <a
+            href={event.official_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonVariants({ size: "lg" })}
+          >
+            公式サイトへ
+          </a>
+        )}
         {event.ticket_url &&
-          (ticketSaleEnded ? (
+          (ticketSaleEnded || isExpired ? (
             <span
               className={buttonVariants({ size: "lg", variant: "outline" })}
               aria-disabled="true"
@@ -394,7 +422,9 @@ export default async function EventDetailPage({
               チケットを購入
             </a>
           ))}
-        <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!viewer} />
+        {!isExpired && (
+          <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!viewer} />
+        )}
         {!isPast && hasDate && (
           <a
             href={`/api/events/${event.id}/ics`}

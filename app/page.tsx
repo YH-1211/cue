@@ -13,6 +13,7 @@ import {
   isParentCategory,
   type EventCategory,
 } from "@/lib/events";
+import { startOfTodayJstIso } from "@/lib/datetime";
 
 type EventRow = {
   id: string;
@@ -57,7 +58,8 @@ export default async function Home() {
 
   const SELECT =
     "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls";
-  const nowIso = new Date().toISOString();
+  // 掲載カットオフ: 開催当日いっぱい表示し、翌日 0:00 JST に消す
+  const nowIso = startOfTodayJstIso();
 
   // 興味タグがあれば、対象カテゴリのイベントをDBから直接優先取得し、
   // 残り枠を一般のイベント(開催が近い順)で補う。

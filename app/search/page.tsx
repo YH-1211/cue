@@ -12,6 +12,7 @@ import {
   type EventCategory,
 } from "@/lib/events";
 import { AREA_COORDS, type AreaName } from "@/lib/tokyo-areas";
+import { startOfTodayJstIso } from "@/lib/datetime";
 import { EventsFilters } from "@/app/events/filters";
 import { NearbyClient, type MapEvent } from "@/app/nearby/nearby-client";
 import { SaveSearchBar } from "./save-search-bar";
@@ -132,7 +133,7 @@ export default async function SearchPage({
       .from("events")
       .select("id, title, area, starts_at, lat, lng")
       .eq("approved", true)
-      .gte("effective_end", new Date().toISOString())
+      .gte("effective_end", startOfTodayJstIso())
       .not("lat", "is", null)
       .not("lng", "is", null)
       .limit(1000);
@@ -156,7 +157,7 @@ export default async function SearchPage({
   // 条件が何も無いときはクエリしない (一覧目的なら /events へ誘導)
   if (view === "list" && hasFilter) {
     const { from: dateFrom, to: dateTo } = resolveDateRange(datePreset);
-    const baseFrom = dateFrom ?? new Date().toISOString();
+    const baseFrom = dateFrom ?? startOfTodayJstIso();
 
     // 親カテゴリは配下のサブカテゴリ全てに展開して RPC へ渡す
     const categoryList = activeCategory

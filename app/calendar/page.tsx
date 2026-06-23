@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { EventCategory } from "@/lib/events";
+import { startOfTodayJstIso } from "@/lib/datetime";
 
 export const metadata = { title: "季節カレンダー" };
 
@@ -60,7 +61,7 @@ async function countMatches(
   supabase: Awaited<ReturnType<typeof createClient>>,
   cue: Cue
 ): Promise<number> {
-  const nowIso = new Date().toISOString();
+  const nowIso = startOfTodayJstIso();
   // 1年先まで
   const yearAhead = new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
 
