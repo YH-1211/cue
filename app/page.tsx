@@ -115,11 +115,7 @@ export default async function Home() {
           Cue
         </h1>
         <p className="max-w-md text-lg font-medium text-foreground sm:text-xl">
-          アート、音楽、舞台、祭り、季節の出来事。
-          <br className="sm:hidden" />
-          <span className="text-muted-foreground">
-            気になる予定をまとめてチェック。
-          </span>
+          イベント情報をまとめてチェック。
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
           <Link href="/events" className={buttonVariants({ size: "default" })}>
