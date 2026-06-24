@@ -192,7 +192,7 @@ export function NearbyClient({
               基準:{" "}
               <span className="font-medium text-foreground">
                 {userArea}
-                {source === "gps" ? " (現在地周辺)" : "区"}
+                {source === "gps" ? " (現在地周辺)" : " 周辺"}
               </span>
             </span>
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -230,7 +230,7 @@ export function NearbyClient({
           </p>
         )}
         <p className="text-[10px] text-muted-foreground">
-          ※ 位置情報は端末内でのみ使用し、サーバーには区名だけを送信します。
+          ※ 位置情報は端末内でのみ使用し、サーバーにはエリア名だけを送信します。
         </p>
       </div>
 

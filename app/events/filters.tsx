@@ -13,39 +13,13 @@ import {
   isParentCategory,
   parentOf,
 } from "@/lib/events";
+import { AREAS_BY_PREFECTURE, PREFECTURES } from "@/lib/tokyo-areas";
 import { cn } from "@/lib/utils";
 
 type Facets = {
   categories: Record<string, number>;
   areas: Record<string, number>;
 };
-
-// 東京の主要エリア (tokyo-areas.ts と同じ並び)
-const AREAS = [
-  "千代田",
-  "中央",
-  "港",
-  "新宿",
-  "文京",
-  "台東",
-  "墨田",
-  "江東",
-  "品川",
-  "目黒",
-  "大田",
-  "世田谷",
-  "渋谷",
-  "中野",
-  "杉並",
-  "豊島",
-  "北",
-  "荒川",
-  "板橋",
-  "練馬",
-  "足立",
-  "葛飾",
-  "江戸川",
-] as const;
 
 const DATE_PRESETS = [
   { value: "", label: "いつでも" },
@@ -384,21 +358,30 @@ export function EventsFilters({
         );
       })()}
 
-      {/* エリア (複数選択) */}
+      {/* エリア (都県 → 市区, 複数選択) */}
       <details className="rounded-lg border border-border bg-card p-3">
         <summary className="cursor-pointer text-sm font-medium select-none">
           エリアで絞り込む {areas.length > 0 && `(${areas.length})`}
         </summary>
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {AREAS.map((a) => (
-            <PillButton
-              key={a}
-              active={areas.includes(a)}
-              onClick={() => toggleArea(a)}
-              count={areaCount(a)}
-            >
-              {a}
-            </PillButton>
+        <div className="mt-3 flex flex-col gap-3">
+          {PREFECTURES.map((pref) => (
+            <div key={pref} className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-muted-foreground">
+                {pref}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.keys(AREAS_BY_PREFECTURE[pref]).map((a) => (
+                  <PillButton
+                    key={a}
+                    active={areas.includes(a)}
+                    onClick={() => toggleArea(a)}
+                    count={areaCount(a)}
+                  >
+                    {a}
+                  </PillButton>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </details>

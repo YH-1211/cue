@@ -4,10 +4,9 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { AREA_COORDS, type AreaName } from "@/lib/tokyo-areas";
+import { AREAS_BY_PREFECTURE, PREFECTURES } from "@/lib/tokyo-areas";
 import { updateHomeArea, type HomeAreaSettings } from "./actions";
 
-const AREAS = Object.keys(AREA_COORDS) as AreaName[];
 const RADIUS_OPTIONS = [3, 5, 8, 10, 15];
 
 type Props = {
@@ -44,7 +43,7 @@ export function HomeAreaSection({ initial }: Props) {
         <div>
           <h2 className="text-base font-semibold">ホームエリア (近隣マッチ)</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            設定した区とその周辺で開かれる、興味タグに合う新着イベントを
+            設定したエリアとその周辺で開かれる、興味タグに合う新着イベントを
             <br />
             毎朝まとめてお知らせします。
           </p>
@@ -53,17 +52,21 @@ export function HomeAreaSection({ initial }: Props) {
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="home_area">区</Label>
+          <Label htmlFor="home_area">エリア</Label>
           <Select
             id="home_area"
             value={homeArea}
             onChange={(e) => setHomeArea(e.target.value)}
           >
             <option value="">(未設定 — 通知しない)</option>
-            {AREAS.map((a) => (
-              <option key={a} value={a}>
-                {a}区
-              </option>
+            {PREFECTURES.map((pref) => (
+              <optgroup key={pref} label={pref}>
+                {Object.keys(AREAS_BY_PREFECTURE[pref]).map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </Select>
         </div>
@@ -110,7 +113,7 @@ export function HomeAreaSection({ initial }: Props) {
       </div>
 
       <p className="mt-3 text-[10px] text-muted-foreground">
-        ※ 位置情報はサーバーに送信されません (区名のみ)。
+        ※ 位置情報はサーバーに送信されません (エリア名のみ)。
       </p>
     </div>
   );

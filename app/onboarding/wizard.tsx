@@ -10,10 +10,9 @@ import {
   PARENT_LABELS,
   type ParentCategory,
 } from "@/lib/events";
-import { AREA_COORDS, type AreaName } from "@/lib/tokyo-areas";
+import { AREAS_BY_PREFECTURE, PREFECTURES } from "@/lib/tokyo-areas";
 import { completeOnboarding, skipOnboarding } from "./actions";
 
-const AREAS = Object.keys(AREA_COORDS) as AreaName[];
 const TOTAL_STEPS = 3;
 
 type Props = {
@@ -133,22 +132,26 @@ export function OnboardingWizard({
             よく行くエリアは？
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            設定すると、その区の周辺で開かれるイベントを近い順に探せます。
+            設定すると、そのエリアの周辺で開かれるイベントを近い順に探せます。
             <br />
-            位置情報はサーバーに送信されません (区名のみ)。
+            位置情報はサーバーに送信されません (エリア名のみ)。
           </p>
 
           <div className="mt-6 flex flex-col gap-2">
-            <label className="text-sm font-medium">区</label>
+            <label className="text-sm font-medium">エリア</label>
             <Select
               value={homeArea}
               onChange={(e) => setHomeArea(e.target.value)}
             >
               <option value="">(あとで設定する)</option>
-              {AREAS.map((a) => (
-                <option key={a} value={a}>
-                  {a}区
-                </option>
+              {PREFECTURES.map((pref) => (
+                <optgroup key={pref} label={pref}>
+                  {Object.keys(AREAS_BY_PREFECTURE[pref]).map((a) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </Select>
           </div>
