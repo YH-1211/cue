@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EventCover } from "@/components/event-cover";
 import {
   CATEGORY_LABELS,
+  categoryBadgeClass,
   PARENT_CATEGORIES,
   PARENT_LABELS,
   SUBCATEGORIES,
@@ -234,13 +235,17 @@ function EventCard({ event }: { event: EventRow }) {
         <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
           <EventCover
             coverImageUrl={event.cover_image_url}
+            title={event.title}
             category={event.category}
             hasFoodStalls={event.has_food_stalls}
             className="h-40 w-full"
           />
           <CardContent className="flex flex-col gap-2 p-4">
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">
+              <Badge
+                variant="secondary"
+                className={categoryBadgeClass(event.category)}
+              >
                 {CATEGORY_LABELS[event.category]}
               </Badge>
               {event.starts_at ? (
@@ -250,7 +255,7 @@ function EventCard({ event }: { event: EventRow }) {
                     <time
                       className={`text-xs ${
                         s.ongoing
-                          ? "font-medium text-emerald-600"
+                          ? "font-medium text-primary"
                           : "text-muted-foreground"
                       }`}
                     >

@@ -15,6 +15,7 @@ import {
 } from "@/lib/tokyo-areas";
 import {
   CATEGORY_LABELS,
+  categoryBadgeClass,
   formatEventDateTime,
   PARENT_CATEGORIES,
   PARENT_LABELS,
@@ -286,6 +287,7 @@ export function NearbyClient({
                 >
                   <EventCover
                     coverImageUrl={e.cover_image_url}
+                    title={e.title}
                     category={e.category}
                     hasFoodStalls={e.has_food_stalls}
                     className="h-20 w-20 shrink-0"
@@ -293,7 +295,12 @@ export function NearbyClient({
                   />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge
+                        variant="secondary"
+                        className={`text-xs ${categoryBadgeClass(
+                          e.category as EventCategory
+                        )}`}
+                      >
                         {CATEGORY_LABELS[e.category as EventCategory]}
                       </Badge>
                       {km != null && (

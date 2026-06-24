@@ -14,6 +14,7 @@ import { rankFor, nextRank } from "@/lib/rank";
 import { EventCover } from "@/components/event-cover";
 import {
   CATEGORY_LABELS,
+  categoryBadgeClass,
   eventScheduleLabel,
   type EventCategory,
 } from "@/lib/events";
@@ -260,6 +261,7 @@ export default async function MePage() {
                 >
                   <EventCover
                     coverImageUrl={event.cover_image_url}
+                    title={event.title}
                     category={event.category}
                     hasFoodStalls={event.has_food_stalls}
                     className="h-20 w-20 shrink-0"
@@ -267,7 +269,12 @@ export default async function MePage() {
                   />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge
+                        variant="secondary"
+                        className={`text-xs ${categoryBadgeClass(
+                          event.category
+                        )}`}
+                      >
                         {CATEGORY_LABELS[event.category]}
                       </Badge>
                       {event.starts_at ? (
@@ -280,7 +287,7 @@ export default async function MePage() {
                             <time
                               className={`text-xs ${
                                 s.ongoing
-                                  ? "font-medium text-emerald-600"
+                                  ? "font-medium text-primary"
                                   : "text-muted-foreground"
                               }`}
                             >
@@ -345,6 +352,7 @@ export default async function MePage() {
                 >
                   <EventCover
                     coverImageUrl={event.cover_image_url}
+                    title={event.title}
                     category={event.category}
                     hasFoodStalls={event.has_food_stalls}
                     className="h-20 w-20 shrink-0"
@@ -352,7 +360,12 @@ export default async function MePage() {
                   />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge
+                        variant="secondary"
+                        className={`text-xs ${categoryBadgeClass(
+                          event.category
+                        )}`}
+                      >
                         {CATEGORY_LABELS[event.category]}
                       </Badge>
                       <Badge
@@ -370,7 +383,7 @@ export default async function MePage() {
                           <time
                             className={`text-xs ${
                               s.ongoing
-                                ? "font-medium text-emerald-600"
+                                ? "font-medium text-primary"
                                 : "text-muted-foreground"
                             }`}
                           >
@@ -493,7 +506,12 @@ export default async function MePage() {
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                       <div className="flex items-center gap-2">
                         {ev && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge
+                            variant="secondary"
+                            className={`text-xs ${categoryBadgeClass(
+                              ev.category
+                            )}`}
+                          >
                             {CATEGORY_LABELS[ev.category]}
                           </Badge>
                         )}

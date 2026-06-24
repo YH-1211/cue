@@ -13,11 +13,13 @@ import { BackButton } from "@/components/back-button";
 import { isAdmin } from "@/lib/admin";
 import {
   CATEGORY_LABELS,
+  categoryBadgeClass,
   formatEventDate,
   formatEventDateTime,
   type EventCategory,
 } from "@/lib/events";
 import { startOfTodayJstIso, isEventExpired } from "@/lib/datetime";
+import { SITE } from "@/lib/site";
 
 type ReportPhoto = {
   id: string;
@@ -84,10 +86,46 @@ export async function generateMetadata({
   const supabase = await createClient();
   const { data } = await supabase
     .from("events")
-    .select("title")
+    .select(
+      "title, description, area, venue_name, starts_at, cover_image_url, approved"
+    )
     .eq("id", id)
     .maybeSingle();
-  return { title: data?.title ?? "イベント" };
+
+  if (!data) return { title: "イベント" };
+
+  const title = data.title ?? "イベント";
+  const where = [data.area, data.venue_name].filter(Boolean).join(" / ");
+  const dateLabel = data.starts_at ? formatEventDate(data.starts_at) : null;
+  // 説明文: イベント説明 → 無ければ「日時・場所 | キャッチコピー」で補完
+  const description =
+    (data.description?.trim().slice(0, 110) ||
+      [dateLabel, where].filter(Boolean).join(" / ")) +
+    (data.description ? "" : ` | ${SITE.name}でチェック`);
+
+  // 公開イベントのみ OGP 画像を出す (未承認はクロール対象外)
+  const ogImage =
+    data.approved
+      ? data.cover_image_url || `/api/og/event/${id}`
+      : "/api/og";
+
+  return {
+    title,
+    description,
+    openGraph: {
+      type: "article",
+      title,
+      description,
+      url: `/events/${id}`,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
 }
 
 export default async function EventDetailPage({
@@ -278,6 +316,7 @@ export default async function EventDetailPage({
 
       <EventCover
         coverImageUrl={event.cover_image_url}
+        title={event.title}
         category={event.category}
         hasFoodStalls={event.has_food_stalls}
         className={`mb-6 aspect-[16/9] w-full rounded-lg${
@@ -287,7 +326,10 @@ export default async function EventDetailPage({
 
       <header className="mb-6 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">
+          <Badge
+            variant="secondary"
+            className={categoryBadgeClass(event.category)}
+          >
             {CATEGORY_LABELS[event.category]}
           </Badge>
           {tags.map((tag) => (
@@ -465,6 +507,7 @@ export default async function EventDetailPage({
                     <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-md">
                       <EventCover
                         coverImageUrl={r.cover_image_url}
+                        title={r.title}
                         category={r.category}
                         hasFoodStalls={r.has_food_stalls}
                         className="h-28 w-full"

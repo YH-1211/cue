@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
   CATEGORY_LABELS,
+  categoryBadgeClass,
   PARENT_CATEGORIES,
   PARENT_LABELS,
   categoriesUnderParent,
@@ -308,7 +309,10 @@ export default async function FeedPage({
                   className="mt-3 block rounded-lg border border-border bg-background/50 p-3 transition-colors hover:bg-muted"
                 >
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge
+                      variant="secondary"
+                      className={`text-xs ${categoryBadgeClass(ev.category)}`}
+                    >
                       {CATEGORY_LABELS[ev.category]}
                     </Badge>
                     {(ev.area || ev.venue_name) && (

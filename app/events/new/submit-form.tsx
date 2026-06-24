@@ -18,7 +18,7 @@ export function SubmitForm() {
             管理者の承認後、イベント一覧に公開されます。
             承認されると{" "}
             <span className="font-medium text-foreground">+10pt</span>{" "}
-            が加算されます（ポイント機能は準備中）。
+            が加算されます。
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link href="/me" className={buttonVariants({ size: "sm" })}>

@@ -11,12 +11,14 @@ export function EventCover({
   hasFoodStalls,
   className,
   rounded,
+  title,
 }: {
   coverImageUrl: string | null;
   category: EventCategory;
   hasFoodStalls?: boolean | null;
   className?: string; // サイズ指定（例: "h-40 w-full" / "h-20 w-20 shrink-0"）
   rounded?: boolean;
+  title?: string; // 実カバー画像の alt に使うイベント名
 }) {
   return (
     <div
@@ -30,7 +32,7 @@ export function EventCover({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={coverImageUrl}
-          alt=""
+          alt={title ?? ""}
           loading="lazy"
           className="h-full w-full object-cover"
         />

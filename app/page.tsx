@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarSearch } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { EventCover } from "@/components/event-cover";
 import { HomeInterestEditor } from "./home-interest-editor";
 import {
   CATEGORY_LABELS,
+  categoryBadgeClass,
   eventScheduleLabel,
   categoriesUnderParent,
   isParentCategory,
@@ -103,16 +105,21 @@ export default async function Home() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6">
       {/* ヒーロー */}
-      <section className="flex flex-col items-start gap-3 py-12 sm:py-16">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-          行きたいが、
-          <br className="sm:hidden" />
-          見つかる。
+      <section className="relative flex flex-col items-start gap-3 py-12 sm:py-16">
+        {/* アクセント色の放射グロー (背景装飾) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-[-20%] top-[-30%] -z-10 h-[360px] bg-[radial-gradient(55%_75%_at_30%_0%,color-mix(in_oklch,var(--primary)_35%,transparent),transparent_70%)] blur-md"
+        />
+        <h1 className="bg-gradient-to-br from-foreground from-30% to-primary bg-clip-text text-6xl font-bold tracking-tight text-transparent sm:text-7xl">
+          Cue
         </h1>
-        <p className="max-w-md text-sm text-muted-foreground sm:text-base">
+        <p className="max-w-md text-lg font-medium text-foreground sm:text-xl">
           アート、音楽、舞台、祭り、季節の出来事。
           <br className="sm:hidden" />
-          気になる予定をまとめてチェック。
+          <span className="text-muted-foreground">
+            気になる予定をまとめてチェック。
+          </span>
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
           <Link href="/events" className={buttonVariants({ size: "default" })}>
@@ -142,7 +149,11 @@ export default async function Home() {
       {/* これからのCue */}
       <section>
         <div className="mb-4 flex items-end justify-between">
-          <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
+          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight sm:text-xl">
+            <span
+              aria-hidden
+              className="h-5 w-1 shrink-0 rounded-full bg-primary"
+            />
             これからのCue
           </h2>
           <Link
@@ -162,8 +173,20 @@ export default async function Home() {
         )}
 
         {events.length === 0 ? (
-          <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-            予定されているイベントはまだありません。
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-10 text-center">
+            <CalendarSearch
+              aria-hidden
+              className="size-8 text-muted-foreground/60"
+            />
+            <p className="text-sm text-muted-foreground">
+              予定されているイベントはまだありません。
+            </p>
+            <Link
+              href="/events"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              すべてのイベントを見る
+            </Link>
           </div>
         ) : (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -176,18 +199,22 @@ export default async function Home() {
                   <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
                     <EventCover
                       coverImageUrl={event.cover_image_url}
+                      title={event.title}
                       category={event.category}
                       hasFoodStalls={event.has_food_stalls}
                       className="h-40 w-full"
                     />
                     <CardContent className="flex flex-col gap-2 p-4">
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary">
+                        <Badge
+                          variant="secondary"
+                          className={categoryBadgeClass(event.category)}
+                        >
                           {CATEGORY_LABELS[event.category]}
                         </Badge>
                         {hasInterests &&
                           interestCategories.includes(event.category) && (
-                            <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
+                            <Badge className="bg-primary text-primary-foreground transition-transform duration-300 group-hover:scale-105 hover:bg-primary">
                               おすすめ
                             </Badge>
                           )}
@@ -200,7 +227,7 @@ export default async function Home() {
                             <time
                               className={`text-xs ${
                                 s.ongoing
-                                  ? "font-medium text-emerald-600"
+                                  ? "font-medium text-primary"
                                   : "text-muted-foreground"
                               }`}
                             >

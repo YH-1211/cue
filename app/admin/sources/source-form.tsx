@@ -53,8 +53,12 @@ export function SourceForm({
           <Select id="kind" name="kind" defaultValue={defaults?.kind ?? "rss"}>
             <option value="rss">RSS</option>
             <option value="atom">Atom</option>
-            <option value="ical">iCal (未実装)</option>
-            <option value="json">JSON (未実装)</option>
+            <option value="ical" disabled>
+              iCal (未対応)
+            </option>
+            <option value="json" disabled>
+              JSON (未対応)
+            </option>
           </Select>
         </Field>
 

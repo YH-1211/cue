@@ -37,7 +37,16 @@ export function SaveButton({
       disabled={pending}
       aria-pressed={saved}
     >
-      {pending ? "更新中..." : saved ? "★ 行きたい登録済み" : "☆ 行きたい"}
+      <span
+        aria-hidden
+        className={
+          "inline-block transition-transform duration-300 " +
+          (saved ? "scale-110 text-primary" : "")
+        }
+      >
+        {saved ? "★" : "☆"}
+      </span>
+      {pending ? "更新中..." : saved ? "行きたい登録済み" : "行きたい"}
     </Button>
   );
 }

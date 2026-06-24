@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
+import { AppearanceMenu } from "@/components/appearance-menu";
 
 export async function Header() {
   const supabase = await createClient();
@@ -10,14 +11,7 @@ export async function Header() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-        <Link href="/" className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold tracking-tight">Cue</span>
-          <span className="hidden text-xs text-muted-foreground sm:inline">
-            行きたいが、見つかる。
-          </span>
-        </Link>
-
+      <div className="mx-auto flex h-14 max-w-5xl items-center justify-end px-4">
         <nav className="flex items-center gap-4 text-sm">
           <Link
             href="/news"
@@ -25,6 +19,8 @@ export async function Header() {
           >
             ニュース
           </Link>
+
+          <AppearanceMenu />
 
           {!user && (
             <Link

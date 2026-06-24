@@ -71,6 +71,28 @@ function isQuietNow(prefs: QuietPrefs | null, now: Date): boolean {
   return jstHour >= start || jstHour < end;
 }
 
+// 複数ユーザーの profiles を 1 クエリでまとめて取得し、id → row の Map にする。
+// ループ内で 1 件ずつ問い合わせる N+1 を避けるためのヘルパー。
+async function fetchProfilesByIds(
+  admin: ReturnType<typeof createAdminClient>,
+  userIds: string[],
+  columns: string
+): Promise<Map<string, Record<string, unknown>>> {
+  const map = new Map<string, Record<string, unknown>>();
+  const unique = [...new Set(userIds)];
+  if (unique.length === 0) return map;
+  const { data } = await admin
+    .from("profiles")
+    .select(`id, ${columns}`)
+    .in("id", unique);
+  for (const p of (data ?? []) as unknown as Array<
+    Record<string, unknown> & { id: string }
+  >) {
+    map.set(p.id, p);
+  }
+  return map;
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -270,19 +292,21 @@ async function sendReminders(
     return 0;
   }
 
+  const rows = data as unknown as SavedEventRow[];
+  // 関係するユーザーの prefs を 1 クエリでまとめて取得 (N+1 回避)
+  const profiles = await fetchProfilesByIds(
+    admin,
+    rows.map((r) => r.user_id),
+    `${opts.prefColumn}, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end`
+  );
+
   let sent = 0;
-  for (const row of data as unknown as SavedEventRow[]) {
+  for (const row of rows) {
     const ev = row.events;
     if (!ev || !row.notify_event_reminder) continue;
 
     // ユーザー側の prefs
-    const { data: profile } = await admin
-      .from("profiles")
-      .select(
-        `${opts.prefColumn}, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end`
-      )
-      .eq("id", row.user_id)
-      .maybeSingle();
+    const profile = profiles.get(row.user_id);
     if (!profile || !(profile as Record<string, boolean>)[opts.prefColumn]) continue;
     if (isQuietNow(profile as unknown as QuietPrefs, new Date())) continue;
 
@@ -353,25 +377,28 @@ async function sendTicketSale(
 
   if (error || !data) return 0;
 
-  let sent = 0;
-  for (const row of data as unknown as Array<
+  const rows = data as unknown as Array<
     Record<string, unknown> & {
       user_id: string;
       events: EventForTicket | null;
     }
-  >) {
+  >;
+  const profiles = await fetchProfilesByIds(
+    admin,
+    rows.map((r) => r.user_id),
+    "notify_ticket, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end"
+  );
+
+  let sent = 0;
+  for (const row of rows) {
     const ev = row.events;
     const enabled = row[col] as boolean;
     if (!ev || !enabled || !ev.ticket_sale_starts_at) continue;
 
     // ユーザー側 prefs (notify_ticket) でも一括 OFF できる
-    const { data: profile } = await admin
-      .from("profiles")
-      .select(
-        "notify_ticket, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end"
-      )
-      .eq("id", row.user_id)
-      .maybeSingle();
+    const profile = profiles.get(row.user_id) as
+      | { notify_ticket?: boolean }
+      | undefined;
     if (!profile?.notify_ticket) continue;
     if (isQuietNow(profile as unknown as QuietPrefs, new Date())) continue;
 
@@ -443,22 +470,25 @@ async function sendTicketSaleEnd(
 
   if (error || !data) return 0;
 
-  let sent = 0;
-  for (const row of data as unknown as Array<{
+  const rows = data as unknown as Array<{
     user_id: string;
     events: EventForTicketEnd | null;
-  }>) {
+  }>;
+  const profiles = await fetchProfilesByIds(
+    admin,
+    rows.map((r) => r.user_id),
+    "notify_ticket, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end"
+  );
+
+  let sent = 0;
+  for (const row of rows) {
     const ev = row.events;
     if (!ev || !ev.ticket_sale_ends_at) continue;
 
     // ユーザー側 prefs (notify_ticket) でまとめて ON/OFF。静音時間も尊重。
-    const { data: profile } = await admin
-      .from("profiles")
-      .select(
-        "notify_ticket, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end"
-      )
-      .eq("id", row.user_id)
-      .maybeSingle();
+    const profile = profiles.get(row.user_id) as
+      | { notify_ticket?: boolean }
+      | undefined;
     if (!profile?.notify_ticket) continue;
     if (isQuietNow(profile as unknown as QuietPrefs, new Date())) continue;
 
@@ -655,17 +685,17 @@ async function sendSavedSearchMatches(
   if (error || !searches || searches.length === 0) return 0;
 
   const nowIso = new Date().toISOString();
+  const rows = searches as SavedSearchRow[];
+  const profiles = await fetchProfilesByIds(
+    admin,
+    rows.map((r) => r.user_id),
+    "notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end"
+  );
   let sent = 0;
 
-  for (const s of searches as SavedSearchRow[]) {
+  for (const s of rows) {
     // 静音時間チェック
-    const { data: profile } = await admin
-      .from("profiles")
-      .select(
-        "notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end"
-      )
-      .eq("id", s.user_id)
-      .maybeSingle();
+    const profile = profiles.get(s.user_id) ?? null;
     if (isQuietNow(profile as unknown as QuietPrefs, new Date())) continue;
 
     const since = s.last_notified_at ?? s.created_at;

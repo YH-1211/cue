@@ -162,6 +162,30 @@ export function categoryLabel(category: string): string {
   return CATEGORY_LABELS[category as EventCategory] ?? category;
 }
 
+// 親カテゴリーごとの識別色 (ユーザーのアクセントカラーとは別軸の「ジャンルの色」)。
+// バッジ用に淡い tint 背景 + 濃い文字色。ライト/ダーク両対応。
+const PARENT_BADGE_CLASSES: Record<ParentCategory, string> = {
+  art: "bg-rose-500/10 text-rose-700 dark:bg-rose-400/15 dark:text-rose-300",
+  music:
+    "bg-violet-500/10 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300",
+  theater:
+    "bg-amber-500/10 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300",
+  festival: "bg-red-500/10 text-red-700 dark:bg-red-400/15 dark:text-red-300",
+  food: "bg-orange-500/10 text-orange-700 dark:bg-orange-400/15 dark:text-orange-300",
+  seasonal:
+    "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300",
+  film: "bg-sky-500/10 text-sky-700 dark:bg-sky-400/15 dark:text-sky-300",
+  learning:
+    "bg-teal-500/10 text-teal-700 dark:bg-teal-400/15 dark:text-teal-300",
+  sports:
+    "bg-indigo-500/10 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-300",
+};
+
+// カテゴリーのバッジ配色クラスを返す (親に丸めて色を決める)。
+export function categoryBadgeClass(category: EventCategory): string {
+  return PARENT_BADGE_CLASSES[parentOf(category)];
+}
+
 // タイトル・説明テキストからカテゴリーを推定する (キーワードベース)。
 // 上から順に評価し、最初にヒットしたカテゴリーを返す (具体的な祭り種別を先に置く)。
 // 自動入力の初期値用。確信度は高くないので、フォーム側で人が確認・修正する前提。

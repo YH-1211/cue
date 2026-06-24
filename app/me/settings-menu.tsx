@@ -15,6 +15,7 @@ type Props = {
 const SETTINGS_LINKS = [
   { href: "/me/profile", label: "プロフィールを編集" },
   { href: "/me/notifications", label: "通知設定" },
+  { href: "/settings/appearance", label: "🎨 表示・テーマ" },
   { href: "/me/saved-searches", label: "保存した検索" },
   { href: "/me/follows", label: "フォロー" },
 ];

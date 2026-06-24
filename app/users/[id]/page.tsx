@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CATEGORY_LABELS, type EventCategory } from "@/lib/events";
+import {
+  CATEGORY_LABELS,
+  categoryBadgeClass,
+  type EventCategory,
+} from "@/lib/events";
 import { RankBadge } from "@/components/rank-badge";
 import { FollowButton } from "../follow-button";
 
@@ -144,7 +148,12 @@ export default async function UserProfilePage({
                   <Card className="transition-shadow group-hover:shadow-md">
                     <CardContent className="flex flex-col gap-1.5 p-4">
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary">
+                        <Badge
+                          variant="secondary"
+                          className={categoryBadgeClass(
+                            ev.category as EventCategory
+                          )}
+                        >
                           {CATEGORY_LABELS[ev.category]}
                         </Badge>
                         {a.rating != null && (
