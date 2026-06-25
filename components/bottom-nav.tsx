@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Home, Search, Sparkles, PlusCircle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +50,13 @@ export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const [pending, startTransition] = useTransition();
 
+  // 検索タブは最後の絞り込み条件を復元する (別タブへ移動して戻っても続きから)
+  const [searchHref, setSearchHref] = useState("/search");
+  useEffect(() => {
+    const saved = sessionStorage.getItem("cue:lastSearch");
+    setSearchHref(saved ? `/search?${saved}` : "/search");
+  }, [pathname]);
+
   return (
     <nav
       aria-label="メインナビゲーション"
@@ -64,10 +71,11 @@ export function BottomNav() {
         {items.map((item) => {
           const active = item.match(pathname);
           const Icon = item.icon;
+          const href = item.href === "/search" ? searchHref : item.href;
           return (
             <li key={item.href} className="flex-1">
               <Link
-                href={item.href}
+                href={href}
                 prefetch
                 aria-current={active ? "page" : undefined}
                 onClick={() => startTransition(() => {})}

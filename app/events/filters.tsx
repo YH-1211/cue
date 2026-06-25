@@ -67,6 +67,14 @@ export function EventsFilters({
     return facets.areas[value] ?? 0;
   }
 
+  // 検索ページでは現在の絞り込み条件を保存し、タブを離れて戻っても続きから再開できるようにする
+  const search = params.toString();
+  useEffect(() => {
+    if (basePath !== "/search") return;
+    if (search) sessionStorage.setItem("cue:lastSearch", search);
+    else sessionStorage.removeItem("cue:lastSearch");
+  }, [basePath, search]);
+
   // 検索入力のみローカル state (タイプ中の値を保持)。URL の q が変わったら入力もそれに合わせる
   const [q, setQ] = useState(urlQ);
   const [lastSyncedQ, setLastSyncedQ] = useState(urlQ);
