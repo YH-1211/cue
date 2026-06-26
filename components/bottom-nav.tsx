@@ -50,10 +50,10 @@ export function BottomNav() {
   const pathname = usePathname() ?? "/";
   const [pending, startTransition] = useTransition();
 
-  // 検索タブは最後の絞り込み条件を復元する (別タブへ移動して戻っても続きから)
+  // 検索タブは最後の絞り込み条件を復元する (別タブへ移動・アプリを開き直しても続きから)
   const [searchHref, setSearchHref] = useState("/search");
   useEffect(() => {
-    const saved = sessionStorage.getItem("cue:lastSearch");
+    const saved = localStorage.getItem("cue:lastSearch");
     setSearchHref(saved ? `/search?${saved}` : "/search");
   }, [pathname]);
 
