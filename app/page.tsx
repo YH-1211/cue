@@ -103,7 +103,7 @@ export default async function Home() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6">
+    <div className="mx-auto w-full max-w-7xl px-4 pb-16 sm:px-6">
       {/* ヒーロー */}
       <section className="relative flex flex-col items-start gap-3 overflow-x-clip py-12 sm:py-16">
         {/* アクセント色の放射グロー (背景装飾) */}
@@ -185,7 +185,7 @@ export default async function Home() {
             </Link>
           </div>
         ) : (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {events.map((event) => (
               <li key={event.id}>
                 <Link
