@@ -17,6 +17,21 @@ import {
 } from "@/lib/events";
 import { startOfTodayJstIso } from "@/lib/datetime";
 
+// ヒーロー右側の「カテゴリから探す」タイル (親カテゴリ 9種)。
+// クリックで /search?category=<親> に飛び、検索側で配下サブに展開される。
+const CATEGORY_SHORTCUTS: { key: EventCategory; emoji: string; label: string }[] =
+  [
+    { key: "festival", emoji: "🏮", label: "祭り" },
+    { key: "music", emoji: "🎵", label: "音楽" },
+    { key: "art", emoji: "🎨", label: "アート" },
+    { key: "food", emoji: "🍜", label: "フード" },
+    { key: "seasonal", emoji: "🌸", label: "季節" },
+    { key: "theater", emoji: "🎭", label: "舞台" },
+    { key: "film", emoji: "🎬", label: "映像" },
+    { key: "learning", emoji: "📚", label: "学び" },
+    { key: "sports", emoji: "⚽", label: "スポーツ" },
+  ];
+
 type EventRow = {
   id: string;
   title: string;
@@ -104,29 +119,61 @@ export default async function Home() {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-16 sm:px-6">
-      {/* ヒーロー */}
-      <section className="relative flex flex-col items-start gap-3 overflow-x-clip py-12 sm:py-16">
+      {/* ヒーロー: PC では左にブランド、右にカテゴリタイルの2カラム */}
+      <section className="relative my-8 overflow-hidden rounded-3xl border border-border bg-card sm:my-10">
         {/* アクセント色の放射グロー (背景装飾) */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-[-20%] top-[-30%] -z-10 h-[360px] bg-[radial-gradient(55%_75%_at_30%_0%,color-mix(in_oklch,var(--primary)_35%,transparent),transparent_70%)] blur-md"
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_90%_at_15%_0%,color-mix(in_oklch,var(--primary)_28%,transparent),transparent_70%)]"
         />
-        <h1 className="bg-gradient-to-br from-foreground from-30% to-primary bg-clip-text text-6xl font-bold tracking-tight text-transparent sm:text-7xl">
-          Cue
-        </h1>
-        <p className="max-w-md text-lg font-medium text-foreground sm:text-xl">
-          イベント情報をまとめてチェック。
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Link href="/events" className={buttonVariants({ size: "default" })}>
-            イベントを見る
-          </Link>
-          <Link
-            href="/calendar"
-            className={buttonVariants({ variant: "outline", size: "default" })}
-          >
-            季節カレンダー
-          </Link>
+        <div className="grid gap-8 p-6 sm:p-10 lg:grid-cols-2 lg:items-center lg:gap-12">
+          {/* 左: ブランド + コピー + CTA */}
+          <div className="flex flex-col items-start gap-4">
+            <h1 className="bg-gradient-to-br from-foreground from-30% to-primary bg-clip-text text-6xl font-bold tracking-tight text-transparent sm:text-7xl">
+              Cue
+            </h1>
+            <p className="max-w-md text-lg font-medium text-foreground sm:text-xl">
+              東京と関東のイベント情報を、まとめてチェック。
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Link
+                href="/events"
+                className={buttonVariants({ size: "default" })}
+              >
+                イベントを見る
+              </Link>
+              <Link
+                href="/calendar"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "default",
+                })}
+              >
+                季節カレンダー
+              </Link>
+            </div>
+          </div>
+
+          {/* 右: カテゴリから探す (3×3 タイル) */}
+          <div>
+            <p className="mb-3 text-xs font-medium text-muted-foreground">
+              カテゴリから探す
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {CATEGORY_SHORTCUTS.map((c) => (
+                <Link
+                  key={c.key}
+                  href={`/search?category=${c.key}`}
+                  className="flex items-center gap-1.5 rounded-xl border border-border bg-background/60 px-2.5 py-2 text-sm transition-colors hover:border-primary hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-2 sm:px-3 sm:py-2.5"
+                >
+                  <span aria-hidden className="text-base leading-none sm:text-lg">
+                    {c.emoji}
+                  </span>
+                  <span className="whitespace-nowrap">{c.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 

@@ -145,17 +145,24 @@ export function NearbyEvents() {
       </div>
 
       {(state.kind === "idle" || state.kind === "denied") && (
-        <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm">
-          <p className="text-muted-foreground">
-            {state.kind === "denied"
-              ? "位置情報がブロックされています。ブラウザ設定から許可してください。"
-              : "位置情報を許可すると、近くで開催されるイベントを表示します。"}
-          </p>
-          <div className="mt-3">
-            <Button size="sm" onClick={requestLocation}>
-              📍 近くを探す
-            </Button>
+        <div className="flex flex-col items-start justify-between gap-4 rounded-lg border border-dashed border-border bg-muted/20 p-5 text-sm sm:flex-row sm:items-center sm:p-6">
+          <div className="flex items-center gap-3">
+            <span aria-hidden className="text-2xl leading-none">
+              📍
+            </span>
+            <p className="text-muted-foreground">
+              {state.kind === "denied"
+                ? "位置情報がブロックされています。ブラウザ設定から許可してください。"
+                : "位置情報を許可すると、近くで開催されるイベントを表示します。"}
+            </p>
           </div>
+          <Button
+            size="sm"
+            onClick={requestLocation}
+            className="shrink-0 self-stretch sm:self-auto"
+          >
+            近くを探す
+          </Button>
         </div>
       )}
 
@@ -189,7 +196,7 @@ export function NearbyEvents() {
       )}
 
       {state.kind === "ready" && state.events.length > 0 && (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {state.events.map((event) => (
             <li key={event.id}>
               <Link
