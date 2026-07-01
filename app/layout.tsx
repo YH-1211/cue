@@ -114,7 +114,7 @@ export default async function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans pb-[calc(env(safe-area-inset-bottom)+64px)] sm:pb-0">
+      <body className="min-h-full flex flex-col overflow-x-clip bg-background text-foreground font-sans pb-[calc(env(safe-area-inset-bottom)+64px)] sm:pb-0">
         <Header />
         <main className="flex-1 flex flex-col">{children}</main>
         <Footer />

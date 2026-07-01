@@ -105,7 +105,7 @@ export default async function Home() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6">
       {/* ヒーロー */}
-      <section className="relative flex flex-col items-start gap-3 py-12 sm:py-16">
+      <section className="relative flex flex-col items-start gap-3 overflow-x-clip py-12 sm:py-16">
         {/* アクセント色の放射グロー (背景装飾) */}
         <div
           aria-hidden
