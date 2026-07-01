@@ -150,64 +150,71 @@ export default async function FeedPage({
     reports.length === PAGE_SIZE ? reports[reports.length - 1].created_at : null;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
-      <header className="mb-4">
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-10">
+      <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">フィード</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           みんなの「行ってきた」レポート。
         </p>
       </header>
 
-      {/* タブ: すべて / フォロー中 */}
-      <div className="mb-4 flex gap-1 border-b border-border">
-        <Link
-          href={feedHref({ tab: "", before: undefined })}
-          className={
-            "px-4 py-2 text-sm font-medium transition-colors " +
-            (!following
-              ? "border-b-2 border-foreground text-foreground"
-              : "text-muted-foreground hover:text-foreground")
-          }
-        >
-          すべて
-        </Link>
-        <Link
-          href={feedHref({ tab: "following", before: undefined })}
-          className={
-            "px-4 py-2 text-sm font-medium transition-colors " +
-            (following
-              ? "border-b-2 border-foreground text-foreground"
-              : "text-muted-foreground hover:text-foreground")
-          }
-        >
-          フォロー中
-        </Link>
-      </div>
-
-      {/* カテゴリ (親単位) */}
-      <nav
-        aria-label="カテゴリで絞り込む"
-        className="mb-6 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0"
-      >
-        <div className="flex gap-1.5">
-          <FeedPill
-            href={feedHref({ category: "", before: undefined })}
-            active={activeCategory === null}
-          >
-            すべて
-          </FeedPill>
-          {PARENT_CATEGORIES.map((p) => (
-            <FeedPill
-              key={p}
-              href={feedHref({ category: p, before: undefined })}
-              active={activeParent === p}
+      {/* PC: 左にフィルタのサイドバー、右にレポート一覧の2カラム */}
+      <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10">
+        {/* フィルタ (モバイルは上部・横並び、PC は左サイドバーで縦並び+追従) */}
+        <aside className="mb-6 flex flex-col gap-4 lg:mb-0 lg:sticky lg:top-20 lg:self-start">
+          {/* タブ: すべて / フォロー中 */}
+          <div className="flex gap-1 border-b border-border lg:flex-col lg:gap-0 lg:border-b-0">
+            <Link
+              href={feedHref({ tab: "", before: undefined })}
+              className={
+                "px-4 py-2 text-sm font-medium transition-colors lg:rounded-md lg:px-3 " +
+                (!following
+                  ? "border-b-2 border-foreground text-foreground lg:border-b-0 lg:bg-muted"
+                  : "text-muted-foreground hover:text-foreground lg:hover:bg-muted/50")
+              }
             >
-              {PARENT_LABELS[p]}
-            </FeedPill>
-          ))}
-        </div>
-      </nav>
+              すべて
+            </Link>
+            <Link
+              href={feedHref({ tab: "following", before: undefined })}
+              className={
+                "px-4 py-2 text-sm font-medium transition-colors lg:rounded-md lg:px-3 " +
+                (following
+                  ? "border-b-2 border-foreground text-foreground lg:border-b-0 lg:bg-muted"
+                  : "text-muted-foreground hover:text-foreground lg:hover:bg-muted/50")
+              }
+            >
+              フォロー中
+            </Link>
+          </div>
 
+          {/* カテゴリ (親単位)。モバイルは横スクロール、PC は縦に折り返し */}
+          <nav
+            aria-label="カテゴリで絞り込む"
+            className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 lg:overflow-visible"
+          >
+            <div className="flex gap-1.5 lg:flex-wrap">
+              <FeedPill
+                href={feedHref({ category: "", before: undefined })}
+                active={activeCategory === null}
+              >
+                すべて
+              </FeedPill>
+              {PARENT_CATEGORIES.map((p) => (
+                <FeedPill
+                  key={p}
+                  href={feedHref({ category: p, before: undefined })}
+                  active={activeParent === p}
+                >
+                  {PARENT_LABELS[p]}
+                </FeedPill>
+              ))}
+            </div>
+          </nav>
+        </aside>
+
+        {/* 右: レポート一覧 */}
+        <div className="min-w-0">
       {following && !viewer && (
         <div className="mb-4 rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
           フォロー中のフィードを見るには
@@ -434,6 +441,8 @@ export default async function FeedPage({
           が必要です。
         </p>
       )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -187,7 +187,7 @@ export default async function MePage() {
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-12">
+    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
       <nav className="mb-4 text-sm">
         <BackButton fallbackHref="/" label="戻る" />
       </nav>
@@ -252,7 +252,7 @@ export default async function MePage() {
             から気になるものを保存できます。
           </div>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="grid gap-3 sm:grid-cols-2">
             {savedEvents.map((event) => (
               <li key={event.id}>
                 <Link
@@ -343,7 +343,7 @@ export default async function MePage() {
             してみましょう。
           </div>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="grid gap-3 sm:grid-cols-2">
             {submittedEvents.map((event) => (
               <li key={event.id}>
                 <Link
