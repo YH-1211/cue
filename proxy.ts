@@ -20,7 +20,7 @@ function passwordGate(request: NextRequest): NextResponse | null {
 
   return new NextResponse("認証が必要です", {
     status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="Cue (開発中)"' },
+    headers: { "WWW-Authenticate": 'Basic realm="Cue"' },
   });
 }
 
