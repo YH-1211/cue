@@ -3,10 +3,10 @@ export default function Loading() {
     <div
       role="status"
       aria-label="読み込み中"
-      className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 sm:py-12"
+      className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 sm:py-12"
     >
       <div className="mb-6 h-8 w-40 animate-pulse rounded bg-muted" />
-      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {Array.from({ length: 9 }).map((_, i) => (
           <li
             key={i}

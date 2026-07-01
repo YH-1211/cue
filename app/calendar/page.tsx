@@ -122,7 +122,7 @@ export default async function CalendarPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6 sm:py-12">
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">季節カレンダー</h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -153,7 +153,7 @@ function Section({
   return (
     <section className="mb-10">
       <h2 className="mb-3 text-sm font-semibold text-muted-foreground">{title}</h2>
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {cues.map((c) => (
           <li key={c.key}>
             <Card

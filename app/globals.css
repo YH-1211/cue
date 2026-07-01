@@ -159,6 +159,15 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 画面全幅に薄いアクセントのグローを敷き、中央寄せコンテンツ両脇の
+       余白が「黒帯」に見えないようにする。fixed でスクロールしても保持。 */
+    background-image: radial-gradient(
+      110% 55% at 50% -8%,
+      color-mix(in oklch, var(--primary) 9%, transparent),
+      transparent 60%
+    );
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
   html {
     @apply font-sans;

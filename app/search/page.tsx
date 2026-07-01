@@ -219,7 +219,7 @@ export default async function SearchPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6 sm:py-12">
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight">検索</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -319,7 +319,7 @@ function SearchListView({
           <p className="mb-3 text-xs text-muted-foreground">
             {events.length} 件{events.length >= 50 && " (上限)"}
           </p>
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {events.map((event) => (
               <li key={event.id}>
                 <Link

@@ -118,7 +118,7 @@ export default async function Home() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 pb-16 sm:px-6">
+    <div className="mx-auto w-full max-w-[1600px] px-4 pb-16 sm:px-6">
       {/* ヒーロー: PC では左にブランド、右にカテゴリタイルの2カラム */}
       <section className="relative my-8 overflow-hidden rounded-3xl border border-border bg-card sm:my-10">
         {/* アクセント色の放射グロー (背景装飾) */}
@@ -232,7 +232,7 @@ export default async function Home() {
             </Link>
           </div>
         ) : (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {events.map((event) => (
               <li key={event.id}>
                 <Link

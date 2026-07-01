@@ -106,7 +106,7 @@ export default async function EventsPage({
   const tbdEvents = (tbdData ?? []) as EventRow[];
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6 sm:py-12">
       <header className="mb-6 flex items-end justify-between gap-3">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold tracking-tight">イベント</h1>
@@ -197,7 +197,7 @@ export default async function EventsPage({
       ) : (
         <>
           {events.length > 0 && (
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               {events.map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}
@@ -212,7 +212,7 @@ export default async function EventsPage({
               <p className="mb-4 text-sm text-muted-foreground">
                 開催が決まっているけれど、日時がまだ発表されていないイベント。詳細が分かり次第更新します。
               </p>
-              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
                 {tbdEvents.map((event) => (
                   <EventCard key={event.id} event={event} />
                 ))}

@@ -196,7 +196,7 @@ export function NearbyEvents() {
       )}
 
       {state.kind === "ready" && state.events.length > 0 && (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
           {state.events.map((event) => (
             <li key={event.id}>
               <Link
