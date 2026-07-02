@@ -78,7 +78,16 @@ export function BottomNav() {
                 href={href}
                 prefetch
                 aria-current={active ? "page" : undefined}
-                onClick={() => startTransition(() => {})}
+                onClick={(e) => {
+                  // すでに開いているタブを再タップしたらページ最上部へ戻す
+                  // (下までスクロールした後の「上に戻る」導線)
+                  if (active) {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    return;
+                  }
+                  startTransition(() => {});
+                }}
                 className={cn(
                   // 高さ 64px + 上下中央配置、タップ領域を広げる
                   "flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors active:bg-muted",
