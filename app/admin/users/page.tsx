@@ -35,22 +35,37 @@ const STATUS_META: Record<Status, { label: string; className: string }> = {
   banned: { label: "ブロック", className: "bg-red-600 text-white" },
 };
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   try {
     await requireAdmin();
   } catch {
     redirect("/me");
   }
 
+  const { q } = await searchParams;
+  // PostgREST の or() を壊す文字 (, ) を除いた検索語
+  const keyword = (q ?? "").trim();
+  const safe = keyword.replace(/[,()*]/g, " ").trim();
+
   const admin = createAdminClient();
 
-  const { data, error } = await admin
+  let query = admin
     .from("profiles")
     .select(
       "id, display_name, avatar_url, bio, points, status, moderation_reason, created_at"
     )
     .order("created_at", { ascending: false })
     .limit(500);
+
+  if (safe) {
+    query = query.or(`display_name.ilike.%${safe}%,bio.ilike.%${safe}%`);
+  }
+
+  const { data, error } = await query;
 
   const profiles = (data ?? []) as ProfileRow[];
 
@@ -89,6 +104,31 @@ export default async function AdminUsersPage() {
         </p>
       </header>
 
+      {/* 名前・自己紹介で検索 (JS なしで動く GET フォーム) */}
+      <form method="get" className="mb-4 flex gap-2">
+        <input
+          type="search"
+          name="q"
+          defaultValue={keyword}
+          placeholder="名前・自己紹介で検索"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"
+        />
+        <button
+          type="submit"
+          className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background"
+        >
+          検索
+        </button>
+        {keyword && (
+          <Link
+            href="/admin/users"
+            className="flex items-center rounded-lg border border-border px-3 text-sm text-muted-foreground hover:bg-muted"
+          >
+            クリア
+          </Link>
+        )}
+      </form>
+
       {error && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
           取得エラー: {error.message}
@@ -96,8 +136,16 @@ export default async function AdminUsersPage() {
       )}
 
       <p className="mb-3 text-xs text-muted-foreground">
-        {profiles.length} 人
+        {keyword ? `「${keyword}」の検索結果: ${profiles.length} 人` : `${profiles.length} 人`}
       </p>
+
+      {profiles.length === 0 && !error && (
+        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          {keyword
+            ? `「${keyword}」に一致する利用者はいません。`
+            : "利用者がいません。"}
+        </div>
+      )}
 
       <ul className="flex flex-col gap-3">
         {profiles.map((p) => {
