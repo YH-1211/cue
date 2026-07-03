@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { isBanned } from "@/lib/moderation";
 
 export async function toggleLike(attendedEventId: string, liked: boolean) {
   const supabase = await createClient();
@@ -86,6 +87,14 @@ export async function addComment(attendedEventId: string, body: string) {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "ログインが必要です" };
 
+  // BAN されたユーザーはコメント不可 (RLS でも弾かれるが、先に分かりやすいエラーを返す)
+  if (await isBanned(supabase, user.id)) {
+    return {
+      ok: false,
+      error: "アカウントが制限されているためコメントできません",
+    };
+  }
+
   const { data, error } = await supabase
     .from("attended_comments")
     .insert({
@@ -116,6 +125,33 @@ export async function addComment(attendedEventId: string, body: string) {
 
   revalidatePath("/feed");
   return { ok: true, comment };
+}
+
+export async function reportComment(commentId: string, reason: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "ログインが必要です" };
+
+  if (await isBanned(supabase, user.id)) {
+    return { ok: false, error: "アカウントが制限されています" };
+  }
+
+  const trimmed = reason.trim().slice(0, 300);
+
+  const { error } = await supabase.from("comment_reports").insert({
+    comment_id: commentId,
+    reporter_id: user.id,
+    reason: trimmed || null,
+  });
+
+  // 同じコメントを重複通報した場合 (unique 制約違反) は成功扱いにする
+  if (error && !error.message.includes("duplicate")) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
 }
 
 export async function deleteComment(commentId: string) {

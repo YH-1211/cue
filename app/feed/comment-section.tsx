@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MessageCircle, Trash2 } from "lucide-react";
+import { MessageCircle, Trash2, Flag } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/relative-time";
@@ -9,6 +9,7 @@ import {
   addComment,
   deleteComment,
   fetchComments,
+  reportComment,
   type FeedComment,
 } from "./actions";
 
@@ -30,6 +31,7 @@ export function CommentSection({
   const [count, setCount] = useState(initialCount);
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [reported, setReported] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
 
   async function toggle() {
@@ -72,6 +74,16 @@ export function CommentSection({
         setComments((cur) => cur.filter((c) => c.id !== id));
         setCount((c) => Math.max(0, c - 1));
       }
+    });
+  }
+
+  function report(id: string) {
+    if (reported.has(id)) return;
+    if (!window.confirm("このコメントを通報しますか？")) return;
+    // 楽観的に「通報済み」にする
+    setReported((cur) => new Set(cur).add(id));
+    startTransition(async () => {
+      await reportComment(id, "");
     });
   }
 
@@ -128,7 +140,7 @@ export function CommentSection({
                     {c.body}
                   </p>
                 </div>
-                {viewerId === c.user_id && (
+                {viewerId === c.user_id ? (
                   <button
                     type="button"
                     aria-label="コメントを削除"
@@ -138,6 +150,24 @@ export function CommentSection({
                   >
                     <Trash2 className="size-3.5" />
                   </button>
+                ) : (
+                  viewerId && (
+                    <button
+                      type="button"
+                      aria-label="コメントを通報"
+                      title={reported.has(c.id) ? "通報済み" : "通報する"}
+                      onClick={() => report(c.id)}
+                      disabled={pending || reported.has(c.id)}
+                      className={cn(
+                        "shrink-0 transition-colors",
+                        reported.has(c.id)
+                          ? "text-amber-500"
+                          : "text-muted-foreground hover:text-amber-500"
+                      )}
+                    >
+                      <Flag className="size-3.5" />
+                    </button>
+                  )
                 )}
               </div>
             );

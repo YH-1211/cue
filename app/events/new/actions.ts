@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/server";
 import { isEventCategory } from "@/lib/events";
 import { jstLocalToIso } from "@/lib/datetime";
 import { extractEventFromUrl } from "@/lib/extract-event";
+import { isBanned } from "@/lib/moderation";
 import type { FetchUrlResult } from "@/components/events/event-form";
 
 // URL を1本受け取り、ページからイベント情報を抽出してフォーム自動入力用に返す。
@@ -53,6 +54,14 @@ export async function submitEvent(
   } = await supabase.auth.getUser();
   if (!user) {
     redirect("/login?next=/events/new");
+  }
+
+  // BAN されたユーザーは投稿不可
+  if (await isBanned(supabase, user.id)) {
+    return {
+      status: "error",
+      message: "アカウントが制限されているため投稿できません。",
+    };
   }
 
   const title = readString(formData, "title");
