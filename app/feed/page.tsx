@@ -114,6 +114,7 @@ export default async function FeedPage({
   }
 
   const { data, error } = await query;
+  if (error) console.error("[feed] query failed:", error);
   const reports = (data ?? []) as unknown as FeedRow[];
 
   // ページネーション用に現在のフィルタを保持する querystring を作る
@@ -230,7 +231,7 @@ export default async function FeedPage({
 
       {error && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-600">
-          読み込みに失敗しました: {error.message}
+          読み込みに失敗しました。時間をおいて再度お試しください。
         </div>
       )}
 

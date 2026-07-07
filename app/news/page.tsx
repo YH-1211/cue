@@ -50,6 +50,7 @@ export default async function NewsPage({
   if (before) query = query.lt("published_at", before);
 
   const { data, error } = await query;
+  if (error) console.error("[news] query failed:", error);
   const news = (data ?? []) as NewsRow[];
 
   const nextBefore =
@@ -101,7 +102,7 @@ export default async function NewsPage({
 
       {error && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-600">
-          読み込みに失敗しました: {error.message}
+          読み込みに失敗しました。時間をおいて再度お試しください。
         </div>
       )}
 

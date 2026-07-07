@@ -78,6 +78,7 @@ export default async function EventsPage({
   }
 
   const { data, error } = await query;
+  if (error) console.error("[events] query failed:", error);
   const events = (data ?? []) as EventRow[];
 
   // 日程未定 (starts_at が NULL) のイベントを別枠で取得
@@ -186,7 +187,7 @@ export default async function EventsPage({
 
       {error ? (
         <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
-          イベント取得エラー: {error.message}
+          イベントの取得に失敗しました。時間をおいて再度お試しください。
         </div>
       ) : events.length === 0 && tbdEvents.length === 0 ? (
         <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">

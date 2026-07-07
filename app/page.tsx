@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarSearch } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
@@ -16,6 +17,12 @@ import {
   type EventCategory,
 } from "@/lib/events";
 import { startOfTodayJstIso } from "@/lib/datetime";
+
+// トップページ固有のメタデータ。タイトル/OGP はレイアウトの既定値を使い、
+// ここでは正規URL (canonical) を明示して重複URL評価を防ぐ。
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 // ヒーロー右側の「カテゴリから探す」タイル (親カテゴリ 9種)。
 // クリックで /search?category=<親> に飛び、検索側で配下サブに展開される。

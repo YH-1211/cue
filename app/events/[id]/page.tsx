@@ -150,10 +150,11 @@ export default async function EventDetailPage({
     .maybeSingle();
 
   if (error) {
+    console.error("[event detail] query failed:", error);
     return (
       <div className="mx-auto w-full max-w-3xl px-6 py-16">
         <p className="text-sm text-red-600">
-          イベント取得エラー: {error.message}
+          イベントの取得に失敗しました。時間をおいて再度お試しください。
         </p>
       </div>
     );

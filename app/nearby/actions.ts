@@ -42,6 +42,9 @@ export async function fetchNearbyEvents(
   }
 
   const { data, error } = await query;
-  if (error) return { events: [], error: error.message };
+  if (error) {
+    console.error("[nearby] query failed:", error);
+    return { events: [], error: "イベントの取得に失敗しました。" };
+  }
   return { events: (data ?? []) as NearbyEvent[] };
 }

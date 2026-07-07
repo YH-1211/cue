@@ -47,7 +47,11 @@ export async function GET(req: NextRequest) {
     .limit(limit);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[api/events/near] query failed:", error);
+    return NextResponse.json(
+      { error: "イベントの取得に失敗しました。" },
+      { status: 500 }
+    );
   }
 
   // エリア距離マップで近さ付与してソート (starts_at 同点で近い順)
