@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   CATEGORY_LABELS,
   categoryBadgeClass,
@@ -217,16 +218,14 @@ export default async function FeedPage({
         {/* 右: レポート一覧 */}
         <div className="min-w-0">
       {following && !viewer && (
-        <div className="mb-4 rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-          フォロー中のフィードを見るには
+        <EmptyState className="mb-4" title="フォロー中のフィードを見るにはログインが必要です。">
           <Link
             href="/login"
-            className="mx-1 text-foreground underline underline-offset-2"
+            className="text-foreground underline underline-offset-2"
           >
-            ログイン
+            ログインする
           </Link>
-          してください。
-        </div>
+        </EmptyState>
       )}
 
       {error && (
@@ -236,25 +235,21 @@ export default async function FeedPage({
       )}
 
       {reports.length === 0 && !before && !(following && !viewer) && (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          {following ? (
-            <>
-              フォロー中のユーザーの投稿はまだありません。
-              <br />
-              気になる人をフォローすると、ここに表示されます。
-            </>
-          ) : activeCategory ? (
-            <>
-              「{CATEGORY_LABELS[activeCategory]}」のレポートはまだありません。
-            </>
-          ) : (
-            <>
-              まだレポートがありません。
-              <br />
-              イベントに行ったら、詳細ページから「行ってきた」を投稿できます。
-            </>
-          )}
-        </div>
+        <EmptyState
+          title={
+            following
+              ? "フォロー中のユーザーの投稿はまだありません。"
+              : activeCategory
+                ? `「${CATEGORY_LABELS[activeCategory]}」のレポートはまだありません。`
+                : "まだレポートがありません。"
+          }
+        >
+          {following
+            ? "気になる人をフォローすると、ここに表示されます。"
+            : activeCategory
+              ? null
+              : "イベントに行ったら、詳細ページから「行ってきた」を投稿できます。"}
+        </EmptyState>
       )}
 
       <ul className="flex flex-col gap-4">

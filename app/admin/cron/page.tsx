@@ -1,6 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatRelativeTime } from "@/lib/relative-time";
 
 export const metadata = { title: "Cron 実行履歴" };
@@ -120,9 +121,7 @@ export default async function CronPage() {
       )}
 
       {kinds.length === 0 && !error && (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          まだログがありません。Cron が次に走ると記録されます。
-        </div>
+        <EmptyState title="まだログがありません。Cron が次に走ると記録されます。" />
       )}
 
       <div className="flex flex-col gap-8">

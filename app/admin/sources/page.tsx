@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/admin";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { CATEGORY_LABELS, type EventCategory } from "@/lib/events";
 import { formatRelativeTime } from "@/lib/relative-time";
 import { DeleteButton, EnableToggle, RunNowButton } from "./row-actions";
@@ -65,9 +66,7 @@ export default async function SourcesPage() {
       )}
 
       {sources.length === 0 && !error && (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          まだソースがありません。「+ 新規追加」から登録してください。
-        </div>
+        <EmptyState title="まだソースがありません。「+ 新規追加」から登録してください。" />
       )}
 
       <ul className="flex flex-col gap-3">

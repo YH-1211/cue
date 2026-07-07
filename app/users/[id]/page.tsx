@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   CATEGORY_LABELS,
   categoryBadgeClass,
@@ -134,9 +135,7 @@ export default async function UserProfilePage({
       </h2>
 
       {attended.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          まだ参加記録がありません。
-        </div>
+        <EmptyState title="まだ参加記録がありません。" />
       ) : (
         <ul className="flex flex-col gap-3">
           {attended.map((a) => {

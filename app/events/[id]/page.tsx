@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { EventCover } from "@/components/event-cover";
 import { Separator } from "@/components/ui/separator";
 import { SaveButton } from "./save-button";
@@ -547,22 +548,22 @@ export default async function EventDetailPage({
             </div>
 
             {reports.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              <EmptyState
+                title={
+                  canReport
+                    ? "まだ感想はありません。"
+                    : "開催後に参加レポートが投稿されると、ここに表示されます。"
+                }
+              >
                 {canReport ? (
-                  <>
-                    まだ感想はありません。
-                    <Link
-                      href={`/events/${event.id}/report`}
-                      className="ml-1 text-foreground underline underline-offset-2"
-                    >
-                      最初のレポートを投稿
-                    </Link>
-                    しませんか？
-                  </>
-                ) : (
-                  <>開催後に参加レポートが投稿されると、ここに表示されます。</>
-                )}
-              </div>
+                  <Link
+                    href={`/events/${event.id}/report`}
+                    className="text-foreground underline underline-offset-2"
+                  >
+                    最初のレポートを投稿しませんか？
+                  </Link>
+                ) : null}
+              </EmptyState>
             ) : (
               <ul className="flex flex-col gap-4">
                 {reports.map((r) => {

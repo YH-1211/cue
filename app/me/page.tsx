@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { EmptyState } from "@/components/ui/empty-state";
 import { RankBadge } from "@/components/rank-badge";
 import { BackButton } from "@/components/back-button";
 import { SettingsMenu } from "./settings-menu";
@@ -241,16 +242,15 @@ export default async function MePage() {
         </div>
 
         {savedEvents.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            まだ登録されていません。
+          <EmptyState title="まだ登録されていません。">
             <Link
               href="/events"
-              className="ml-1 text-foreground underline underline-offset-2"
+              className="text-foreground underline underline-offset-2"
             >
               イベント一覧
             </Link>
             から気になるものを保存できます。
-          </div>
+          </EmptyState>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
             {savedEvents.map((event) => (
@@ -332,16 +332,15 @@ export default async function MePage() {
         </div>
 
         {submittedEvents.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            まだ投稿はありません。
+          <EmptyState title="まだ投稿はありません。">
             <Link
               href="/events/new"
-              className="ml-1 text-foreground underline underline-offset-2"
+              className="text-foreground underline underline-offset-2"
             >
               イベントを投稿
             </Link>
             してみましょう。
-          </div>
+          </EmptyState>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2">
             {submittedEvents.map((event) => (
@@ -427,11 +426,9 @@ export default async function MePage() {
         </div>
 
         {pointHistory.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            まだ履歴がありません。
-            <br />
+          <EmptyState title="まだ履歴がありません。">
             投稿が承認されると +10pt が加算されます。
-          </div>
+          </EmptyState>
         ) : (
           <ul className="flex flex-col gap-2">
             {pointHistory.map((tx) => (
@@ -473,11 +470,9 @@ export default async function MePage() {
         </div>
 
         {reports.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            まだレポートはありません。参加したイベントのページから
-            <br />
-            「行ってきた / 感想を投稿」できます。
-          </div>
+          <EmptyState title="まだレポートはありません。">
+            参加したイベントのページから「行ってきた / 感想を投稿」できます。
+          </EmptyState>
         ) : (
           <ul className="flex flex-col gap-3">
             {reports.map((r) => {
@@ -559,9 +554,7 @@ export default async function MePage() {
           </Link>
         </div>
         {interestCategories.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            好きなジャンルを設定すると、ホームで優先表示されます。
-          </div>
+          <EmptyState title="好きなジャンルを設定すると、ホームで優先表示されます。" />
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {interestCategories.map((c) => (

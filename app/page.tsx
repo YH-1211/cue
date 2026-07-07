@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { NearbyEvents } from "@/components/nearby-events";
 import { EventCover } from "@/components/event-cover";
+import { EmptyState } from "@/components/ui/empty-state";
 import { HomeInterestEditor } from "./home-interest-editor";
 import {
   CATEGORY_LABELS,
@@ -223,21 +224,17 @@ export default async function Home() {
         )}
 
         {events.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-10 text-center">
-            <CalendarSearch
-              aria-hidden
-              className="size-8 text-muted-foreground/60"
-            />
-            <p className="text-sm text-muted-foreground">
-              予定されているイベントはまだありません。
-            </p>
+          <EmptyState
+            icon={<CalendarSearch aria-hidden className="size-8" />}
+            title="予定されているイベントはまだありません。"
+          >
             <Link
               href="/events"
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               すべてのイベントを見る
             </Link>
-          </div>
+          </EmptyState>
         ) : (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {events.map((event) => (

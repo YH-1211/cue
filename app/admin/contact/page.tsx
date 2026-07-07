@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { HandledButton } from "./handled-button";
 
 export const metadata = { title: "管理 / お問い合わせ" };
@@ -75,9 +76,7 @@ export default async function AdminContactPage() {
           取得エラー: {error.message}
         </div>
       ) : messages.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          お問い合わせはまだありません。
-        </div>
+        <EmptyState title="お問い合わせはまだありません。" />
       ) : (
         <ul className="flex flex-col gap-4">
           {messages.map((m) => (

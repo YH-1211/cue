@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
 import { EventMap, type MapMarker } from "@/components/event-map";
 import { EventCover } from "@/components/event-cover";
 import {
@@ -259,19 +260,15 @@ export function NearbyClient({
 
       {/* 結果 */}
       {!origin ? (
-        <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          「現在地から探す」を押すと、近くで開催されるイベントが表示されます。
-        </p>
+        <EmptyState title="「現在地から探す」を押すと、近くで開催されるイベントが表示されます。" />
       ) : pending && !loaded ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
           探しています…
         </p>
       ) : events.length === 0 && loaded ? (
-        <p className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          半径 {radius}km 以内に今後のイベントは見つかりませんでした。
-          <br />
+        <EmptyState title={`半径 ${radius}km 以内に今後のイベントは見つかりませんでした。`}>
           半径を広げてみてください。
-        </p>
+        </EmptyState>
       ) : (
         <ul className="flex flex-col gap-3">
           {events.map((e) => {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { EventCover } from "@/components/event-cover";
 import {
   CATEGORY_LABELS,
@@ -196,6 +197,7 @@ export default async function SearchPage({
     ]);
 
     events = (data ?? []) as EventRow[];
+    if (error) console.error("[search] query failed:", error);
     errorMessage = error?.message ?? null;
     if (facetData) facets = facetData as Facets;
 
@@ -294,9 +296,7 @@ function SearchListView({
       )}
 
       {!hasFilter ? (
-        <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          上のフォームから条件を選んでください。
-          <br />
+        <EmptyState title="上のフォームから条件を選んでください。">
           ぶらっと眺めたいときは
           <Link
             href="/events"
@@ -305,15 +305,13 @@ function SearchListView({
             イベント一覧
           </Link>
           へどうぞ。
-        </div>
+        </EmptyState>
       ) : errorMessage ? (
         <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
-          検索エラー: {errorMessage}
+          検索に失敗しました。時間をおいて再度お試しください。
         </div>
       ) : events.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          条件に合うイベントが見つかりませんでした。
-        </div>
+        <EmptyState title="条件に合うイベントが見つかりませんでした。" />
       ) : (
         <>
           <p className="mb-3 text-xs text-muted-foreground">

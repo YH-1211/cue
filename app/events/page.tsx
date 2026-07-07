@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EventCover } from "@/components/event-cover";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   CATEGORY_LABELS,
   categoryBadgeClass,
@@ -190,11 +191,13 @@ export default async function EventsPage({
           イベントの取得に失敗しました。時間をおいて再度お試しください。
         </div>
       ) : events.length === 0 && tbdEvents.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          {activeCategory
-            ? `「${CATEGORY_LABELS[activeCategory]}」の予定はまだありません。`
-            : "予定されているイベントはまだありません。"}
-        </div>
+        <EmptyState
+          title={
+            activeCategory
+              ? `「${CATEGORY_LABELS[activeCategory]}」の予定はまだありません。`
+              : "予定されているイベントはまだありません。"
+          }
+        />
       ) : (
         <>
           {events.length > 0 && (

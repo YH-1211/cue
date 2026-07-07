@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { EmptyState } from "@/components/ui/empty-state";
 import { NewsRow, type NewsRowData } from "./news-row";
 
 export const metadata = { title: "管理 / ニュース" };
@@ -70,9 +71,7 @@ export default async function AdminNewsPage({
       )}
 
       {news.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          ニュースがありません。
-        </div>
+        <EmptyState title="ニュースがありません。" />
       ) : (
         <>
           <p className="mb-3 text-xs text-muted-foreground">

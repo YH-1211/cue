@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { BackButton } from "@/components/back-button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SavedSearchList, type SavedSearch } from "./saved-search-list";
 
 export const metadata = { title: "保存した検索" };
@@ -36,16 +37,14 @@ export default async function SavedSearchesPage() {
       </header>
 
       {searches.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          まだ保存した検索はありません。
-          <br />
+        <EmptyState title="まだ保存した検索はありません。">
           <Link
             href="/search"
-            className="mt-2 inline-block text-foreground underline underline-offset-2"
+            className="inline-block text-foreground underline underline-offset-2"
           >
             検索画面で条件を保存する
           </Link>
-        </div>
+        </EmptyState>
       ) : (
         <SavedSearchList searches={searches} />
       )}

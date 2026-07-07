@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { UserActions } from "./user-actions";
 
 export const metadata = { title: "管理 / 利用者" };
@@ -140,11 +141,13 @@ export default async function AdminUsersPage({
       </p>
 
       {profiles.length === 0 && !error && (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          {keyword
-            ? `「${keyword}」に一致する利用者はいません。`
-            : "利用者がいません。"}
-        </div>
+        <EmptyState
+          title={
+            keyword
+              ? `「${keyword}」に一致する利用者はいません。`
+              : "利用者がいません。"
+          }
+        />
       )}
 
       <ul className="flex flex-col gap-3">

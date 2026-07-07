@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   CATEGORY_LABELS,
   EVENT_CATEGORIES,
@@ -107,11 +108,13 @@ export default async function NewsPage({
       )}
 
       {news.length === 0 && !before && (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          {selected
-            ? `「${CATEGORY_LABELS[selected]}」のニュースはまだありません。`
-            : "まだニュースがありません。"}
-        </div>
+        <EmptyState
+          title={
+            selected
+              ? `「${CATEGORY_LABELS[selected]}」のニュースはまだありません。`
+              : "まだニュースがありません。"
+          }
+        />
       )}
 
       <ul className="grid gap-3 sm:grid-cols-2">

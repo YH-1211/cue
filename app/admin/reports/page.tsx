@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { formatRelativeTime } from "@/lib/relative-time";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ReportActions } from "./report-actions";
 
 export const metadata = { title: "管理 / 通報" };
@@ -90,9 +91,7 @@ export default async function AdminReportsPage() {
       )}
 
       {reports.length === 0 && !error && (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          未対応の通報はありません。
-        </div>
+        <EmptyState title="未対応の通報はありません。" />
       )}
 
       <ul className="flex flex-col gap-3">

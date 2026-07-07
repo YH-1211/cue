@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/admin";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { CATEGORY_LABELS, type EventCategory } from "@/lib/events";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ApproveButton, RejectButton, DeleteButton } from "./buttons";
 
 export const metadata = { title: "モデレーション" };
@@ -94,9 +95,7 @@ export default async function ModerationPage() {
       )}
 
       {events.length === 0 && (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          未承認のイベントはありません 🎉
-        </div>
+        <EmptyState title="未承認のイベントはありません 🎉" />
       )}
 
       <ul className="flex flex-col gap-3">
@@ -166,9 +165,7 @@ export default async function ModerationPage() {
       </header>
 
       {approvedEvents.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-          公開中のイベントはありません。
-        </div>
+        <EmptyState title="公開中のイベントはありません。" />
       ) : (
         <ul className="flex flex-col gap-3">
           {approvedEvents.map((ev) => (
