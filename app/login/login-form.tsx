@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
 import {
   sendMagicLink,
@@ -26,8 +27,14 @@ export function LoginForm() {
   );
   const [googlePending, startGoogle] = useTransition();
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
+  const [agreeError, setAgreeError] = useState<string | null>(null);
 
   function onGoogle() {
+    if (!agreed) {
+      setAgreeError("利用規約とプライバシーポリシーへの同意が必要です。");
+      return;
+    }
     setGoogleError(null);
     startGoogle(async () => {
       const res = await signInWithGoogle();
@@ -92,13 +99,45 @@ export function LoginForm() {
 
   return (
     <div className="flex flex-col gap-4">
+      <label className="flex items-start gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={agreed}
+          onChange={(e) => {
+            setAgreed(e.target.checked);
+            if (e.target.checked) setAgreeError(null);
+          }}
+          className="mt-0.5 size-4 shrink-0 rounded border-border accent-primary"
+        />
+        <span>
+          <Link
+            href="/terms"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            利用規約
+          </Link>
+          と
+          <Link
+            href="/privacy"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            プライバシーポリシー
+          </Link>
+          に同意します。
+        </span>
+      </label>
+
+      {agreeError && (
+        <p className="text-sm text-red-600 dark:text-red-400">{agreeError}</p>
+      )}
+
       <Button
         type="button"
         variant="outline"
         size="lg"
         className="w-full gap-2"
         onClick={onGoogle}
-        disabled={googlePending}
+        disabled={googlePending || !agreed}
       >
         <GoogleIcon />
         {googlePending ? "リダイレクト中..." : "Google で続行"}
@@ -134,7 +173,12 @@ export function LoginForm() {
           </p>
         )}
 
-        <Button type="submit" variant="outline" size="lg" disabled={pending}>
+        <Button
+          type="submit"
+          variant="outline"
+          size="lg"
+          disabled={pending || !agreed}
+        >
           {pending ? "送信中..." : "ログインリンクをメールで送る"}
         </Button>
       </form>
