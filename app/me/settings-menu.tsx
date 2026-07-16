@@ -23,6 +23,7 @@ const SETTINGS_LINKS = [
 const ADMIN_LINKS = [
   { href: "/admin/events/new", label: "➕ イベント作成", rootOnly: false },
   { href: "/admin/events/bulk", label: "📥 一括投入", rootOnly: false },
+  { href: "/admin/analytics", label: "📈 アクセス分析", rootOnly: false },
   { href: "/admin/moderation", label: "⚙ モデレーション", rootOnly: false },
   { href: "/admin/users", label: "🧑‍🤝‍🧑 利用者", rootOnly: false },
   { href: "/admin/reports", label: "🚩 通報", rootOnly: false },

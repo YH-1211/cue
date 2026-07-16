@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { EventCover } from "@/components/event-cover";
 import { Separator } from "@/components/ui/separator";
 import { SaveButton } from "./save-button";
+import { TrackView, TrackedLink } from "./track";
 import { AdminDeleteButton } from "./admin-delete-button";
 import { BackButton } from "@/components/back-button";
 import { isAdmin } from "@/lib/admin";
@@ -292,6 +293,7 @@ export default async function EventDetailPage({
 
   return (
     <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+      {event.approved && <TrackView eventId={event.id} />}
       <nav className="mb-4 text-sm">
         <BackButton fallbackHref="/events" label="戻る" />
       </nav>
@@ -438,14 +440,14 @@ export default async function EventDetailPage({
             公式サイト (終了)
           </span>
         ) : (
-          <a
+          <TrackedLink
+            eventId={event.id}
+            kind="official_click"
             href={event.official_url}
-            target="_blank"
-            rel="noopener noreferrer"
             className={buttonVariants({ size: "lg" })}
           >
             公式サイトへ
-          </a>
+          </TrackedLink>
         )}
         {event.ticket_url &&
           (ticketSaleEnded || isExpired ? (
@@ -457,14 +459,14 @@ export default async function EventDetailPage({
               チケット販売終了
             </span>
           ) : (
-            <a
+            <TrackedLink
+              eventId={event.id}
+              kind="ticket_click"
               href={event.ticket_url}
-              target="_blank"
-              rel="noopener noreferrer"
               className={buttonVariants({ size: "lg", variant: "outline" })}
             >
               チケットを購入
-            </a>
+            </TrackedLink>
           ))}
         {!isExpired && (
           <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!viewer} />
