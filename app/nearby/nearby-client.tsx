@@ -287,6 +287,7 @@ export function NearbyClient({
                     title={e.title}
                     category={e.category}
                     hasFoodStalls={e.has_food_stalls}
+                    width={200}
                     className="h-20 w-20 shrink-0"
                     rounded
                   />

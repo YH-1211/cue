@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { CategoryCover } from "@/components/category-cover";
+import { optimizeImageUrl } from "@/lib/images";
 import type { EventCategory } from "@/lib/events";
 
 // イベントカードのカバー領域。
@@ -12,6 +13,7 @@ export function EventCover({
   className,
   rounded,
   title,
+  width,
 }: {
   coverImageUrl: string | null;
   category: EventCategory;
@@ -19,7 +21,9 @@ export function EventCover({
   className?: string; // サイズ指定（例: "h-40 w-full" / "h-20 w-20 shrink-0"）
   rounded?: boolean;
   title?: string; // 実カバー画像の alt に使うイベント名
+  width?: number; // 最適化する表示幅(px)。Retina考慮で実寸の約2倍を渡す。既定=カード相当
 }) {
+  const optimized = optimizeImageUrl(coverImageUrl, width ?? 800);
   return (
     <div
       className={cn(
@@ -31,9 +35,10 @@ export function EventCover({
       {coverImageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={coverImageUrl}
+          src={optimized ?? coverImageUrl}
           alt={title ?? ""}
           loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover"
         />
       ) : (

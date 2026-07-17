@@ -323,6 +323,7 @@ export default async function EventDetailPage({
         title={event.title}
         category={event.category}
         hasFoodStalls={event.has_food_stalls}
+        width={1600}
         className={`mb-6 aspect-[16/9] w-full rounded-lg${
           isExpired ? " opacity-50 grayscale" : ""
         }`}
@@ -514,6 +515,7 @@ export default async function EventDetailPage({
                         title={r.title}
                         category={r.category}
                         hasFoodStalls={r.has_food_stalls}
+                        width={500}
                         className="h-28 w-full"
                       />
                       <CardContent className="flex flex-col gap-1 p-3">

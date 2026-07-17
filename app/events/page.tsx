@@ -78,10 +78,6 @@ export default async function EventsPage({
     query = query.eq("area", activeArea);
   }
 
-  const { data, error } = await query;
-  if (error) console.error("[events] query failed:", error);
-  const events = (data ?? []) as EventRow[];
-
   // 日程未定 (starts_at が NULL) のイベントを別枠で取得
   let tbdQuery = supabase
     .from("events")
@@ -104,7 +100,13 @@ export default async function EventsPage({
     tbdQuery = tbdQuery.eq("area", activeArea);
   }
 
-  const { data: tbdData } = await tbdQuery;
+  // 2つのクエリは互いに独立しているので並列で取得する
+  const [{ data, error }, { data: tbdData }] = await Promise.all([
+    query,
+    tbdQuery,
+  ]);
+  if (error) console.error("[events] query failed:", error);
+  const events = (data ?? []) as EventRow[];
   const tbdEvents = (tbdData ?? []) as EventRow[];
 
   return (

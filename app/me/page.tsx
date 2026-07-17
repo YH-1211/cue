@@ -264,6 +264,7 @@ export default async function MePage() {
                     title={event.title}
                     category={event.category}
                     hasFoodStalls={event.has_food_stalls}
+                    width={200}
                     className="h-20 w-20 shrink-0"
                     rounded
                   />
@@ -354,6 +355,7 @@ export default async function MePage() {
                     title={event.title}
                     category={event.category}
                     hasFoodStalls={event.has_food_stalls}
+                    width={200}
                     className="h-20 w-20 shrink-0"
                     rounded
                   />
