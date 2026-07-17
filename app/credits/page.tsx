@@ -36,6 +36,24 @@ export default function CreditsPage() {
         </section>
 
         <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold">公式イベント画像について</h2>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            一部のイベントでは、主催者・公式サイトが SNS 共有用に公開している画像（OGP
+            画像等）を、イベントを紹介する目的で表示しています。各イベントには公式サイトへのリンクを併記しており、著作権は各権利者に帰属します。
+          </p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            掲載画像の取り下げをご希望の権利者の方は、
+            <Link
+              href="/contact"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              お問い合わせフォーム
+            </Link>
+            よりご連絡ください。確認のうえ速やかに対応いたします。
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold">Wikimedia Commons</h2>
           <ul className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
             <li>

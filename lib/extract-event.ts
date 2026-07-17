@@ -3,6 +3,8 @@
 // - フォールバック: OGP / Twitter Card (og:title, og:image, og:description) と <title>
 // 取れなかった項目は null。フォーム自動入力 (ユーザー投稿・管理画面の両方) で共有して使う。
 
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
 import { inferCategory, type EventCategory } from "@/lib/events";
 
 const USER_AGENT = "CueBot/1.0 (+https://cue-taupe-eight.vercel.app)";
@@ -56,13 +58,19 @@ export async function extractEventFromUrl(pageUrl: string): Promise<ExtractResul
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 6000);
-    const res = await fetch(target.toString(), {
-      headers: {
-        "User-Agent": USER_AGENT,
-        Accept: "text/html,application/xhtml+xml",
-      },
-      signal: ctrl.signal,
-    });
+    let res: Response;
+    try {
+      res = await fetchHtmlSafely(target, ctrl);
+    } catch (e) {
+      clearTimeout(timer);
+      if (e instanceof SsrfError) {
+        return {
+          ok: false,
+          error: "このURLへはセキュリティ上アクセスできません。",
+        };
+      }
+      return { ok: false, error: "ページの取得に失敗しました (タイムアウト等)。" };
+    }
     clearTimeout(timer);
 
     if (!res.ok) {
@@ -155,6 +163,104 @@ export async function extractEventFromUrl(pageUrl: string): Promise<ExtractResul
   }
 
   return { ok: true, data };
+}
+
+// ---- SSRF 対策 ----
+// 公開ページのつもりで渡された URL が、実は内部ネットワーク (127.0.0.1 / 社内IP /
+// クラウドのメタデータ 169.254.169.254 等) を指していないかを検証する。
+// リダイレクトも野放しにせず、各ホップで再検証する。
+// 注: DNS リバインディング (検証後に別IPへ解決される) までは防げないが、
+// admin 登録URL・ユーザー投稿URL の想定脅威に対しては十分な多層防御になる。
+
+class SsrfError extends Error {}
+
+function isPrivateIpv4(ip: string): boolean {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) {
+    return true; // 壊れた値は安全側で拒否
+  }
+  const [a, b] = parts;
+  if (a === 0) return true; // 0.0.0.0/8
+  if (a === 10) return true; // 10.0.0.0/8 プライベート
+  if (a === 127) return true; // 127.0.0.0/8 ループバック
+  if (a === 169 && b === 254) return true; // 169.254.0.0/16 リンクローカル (メタデータ含む)
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 プライベート
+  if (a === 192 && b === 168) return true; // 192.168.0.0/16 プライベート
+  if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
+  if (a >= 224) return true; // マルチキャスト/予約
+  return false;
+}
+
+function isPrivateIpv6(ip: string): boolean {
+  const s = ip.toLowerCase();
+  if (s === "::1" || s === "::") return true; // ループバック/未指定
+  const mapped = s.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/); // IPv4-mapped
+  if (mapped) return isPrivateIpv4(mapped[1]);
+  if (s.startsWith("fc") || s.startsWith("fd")) return true; // fc00::/7 ULA
+  if (/^fe[89ab]/.test(s)) return true; // fe80::/10 リンクローカル
+  return false;
+}
+
+function isBlockedIp(ip: string): boolean {
+  const v = isIP(ip);
+  if (v === 4) return isPrivateIpv4(ip);
+  if (v === 6) return isPrivateIpv6(ip);
+  return true; // 判定不能は拒否
+}
+
+// ホスト名を解決し、いずれかのIPが内部向けなら SsrfError を投げる。
+async function assertPublicHost(target: URL): Promise<void> {
+  const host = target.hostname;
+  if (isIP(host)) {
+    if (isBlockedIp(host)) throw new SsrfError("blocked ip literal");
+    return;
+  }
+  let addrs: { address: string }[];
+  try {
+    addrs = await lookup(host, { all: true });
+  } catch {
+    throw new SsrfError("dns lookup failed");
+  }
+  if (addrs.length === 0) throw new SsrfError("no address");
+  for (const a of addrs) {
+    if (isBlockedIp(a.address)) throw new SsrfError("resolves to private ip");
+  }
+}
+
+// 内部IP検証 + リダイレクトを手動追従 (最大5ホップ、各ホップで再検証)。
+async function fetchHtmlSafely(
+  startUrl: URL,
+  ctrl: AbortController
+): Promise<Response> {
+  let current = startUrl;
+  for (let hop = 0; hop < 5; hop++) {
+    await assertPublicHost(current);
+    const res = await fetch(current.toString(), {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml",
+      },
+      redirect: "manual",
+      signal: ctrl.signal,
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) return res;
+      let next: URL;
+      try {
+        next = new URL(loc, current);
+      } catch {
+        throw new SsrfError("invalid redirect target");
+      }
+      if (next.protocol !== "http:" && next.protocol !== "https:") {
+        throw new SsrfError("non-http redirect");
+      }
+      current = next;
+      continue;
+    }
+    return res;
+  }
+  throw new SsrfError("too many redirects");
 }
 
 // ---- JSON-LD ----
