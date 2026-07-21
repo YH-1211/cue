@@ -16,7 +16,8 @@ export type AdminAction =
   | "delete_user"
   | "resolve_report"
   | "dismiss_report"
-  | "delete_comment";
+  | "delete_comment"
+  | "self_delete_account";
 
 export type LogActionInput = {
   actorEmail: string;

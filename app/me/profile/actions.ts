@@ -3,11 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
+import { logAdminAction } from "@/lib/moderation";
 
 export type ProfileState =
   | { status: "idle" }
   | { status: "error"; message: string }
   | { status: "success" };
+
+export type DeleteState =
+  | { status: "idle" }
+  | { status: "error"; message: string };
 
 const MAX_NAME_LEN = 30;
 const MAX_BIO_LEN = 160;
@@ -107,4 +113,53 @@ export async function updateProfile(
   revalidatePath("/me/profile");
   revalidatePath(`/users/${user.id}`);
   return { status: "success" };
+}
+
+// 退会: 本人が自分のアカウントとデータを完全に削除する。
+// ログアウト (セッションを切るだけ) とは別で、auth ユーザーごと消す
+// → profiles / 保存・コメント等 FK cascade で紐づくデータも消える。取り消し不可。
+export async function deleteMyAccount(
+  _prev: DeleteState,
+  formData: FormData
+): Promise<DeleteState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/login?next=/me/profile");
+  }
+
+  // 誤操作防止: 「退会」と入力しないと進めない
+  const confirm = (formData.get("confirm") as string | null)?.trim() ?? "";
+  if (confirm !== "退会") {
+    return {
+      status: "error",
+      message: "確認のため「退会」と入力してください。",
+    };
+  }
+
+  const admin = createAdminClient();
+
+  // 監査ログ (uuid のみ・個人情報は残さない)。削除で本人データが消える前に記録
+  await logAdminAction(admin, {
+    actorEmail: "self",
+    action: "self_delete_account",
+    targetUserId: user.id,
+    targetType: "user",
+    targetId: user.id,
+    detail: null,
+  });
+
+  const { error } = await admin.auth.admin.deleteUser(user.id);
+  if (error) {
+    return {
+      status: "error",
+      message: `退会処理に失敗しました: ${error.message}`,
+    };
+  }
+
+  // 消えたユーザーのセッションを破棄してトップへ
+  await supabase.auth.signOut();
+  redirect("/?goodbye=1");
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { ProfileForm } from "./profile-form";
+import { DeleteAccountSection } from "./delete-account-section";
 
 export const metadata = { title: "プロフィール編集" };
 
@@ -39,6 +40,7 @@ export default async function ProfileEditPage() {
         プロフィール編集
       </h1>
       <ProfileForm initial={initial} />
+      <DeleteAccountSection />
     </div>
   );
 }
