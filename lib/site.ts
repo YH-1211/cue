@@ -7,9 +7,9 @@ export const SITE = {
   // シェア時のキャッチコピー
   tagline: "行きたいが、見つかる。",
   // 運営者名（屋号・団体名）
-  operator: "グランフィットグループ株式会社",
+  operator: "Cue運営",
   // 問い合わせ・通報を受け取るメールアドレス
-  contactEmail: "yuma.hirahara@gfg01.co.jp",
+  contactEmail: "cue.event.info@gmail.com",
   // 規約・ポリシーの制定日（必要に応じて改定日を更新）
-  effectiveDate: "2026年6月3日",
+  effectiveDate: "2026年7月21日",
 } as const;
