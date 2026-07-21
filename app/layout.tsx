@@ -57,6 +57,12 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
   },
+  // Google Search Console の所有権確認。
+  // Vercel 環境変数 GOOGLE_SITE_VERIFICATION にコードを入れると
+  // <meta name="google-site-verification"> が出力される (未設定なら何も出ない)。
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION,
+  },
 };
 
 export const viewport: Viewport = {
