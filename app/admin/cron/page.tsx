@@ -26,6 +26,7 @@ type DayBucket = {
 const KIND_LABELS: Record<string, string> = {
   ingest: "取り込み (ingest)",
   notify: "通知 (notify)",
+  healthcheck: "ヘルスチェック (healthcheck)",
 };
 
 function toJstDayKey(iso: string): string {

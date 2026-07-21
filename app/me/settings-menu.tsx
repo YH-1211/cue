@@ -30,6 +30,7 @@ const ADMIN_LINKS = [
   { href: "/admin/sources", label: "🔌 取り込みソース", rootOnly: false },
   { href: "/admin/news", label: "📰 ニュース管理", rootOnly: false },
   { href: "/admin/contact", label: "✉️ お問い合わせ", rootOnly: false },
+  { href: "/admin/reviews", label: "🔍 要確認リスト", rootOnly: false },
   { href: "/admin/admins", label: "👤 管理者", rootOnly: true },
   { href: "/admin/cron", label: "📊 Cron 実行履歴", rootOnly: false },
 ];
