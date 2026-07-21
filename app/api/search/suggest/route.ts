@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { startOfTodayJstIso } from "@/lib/datetime";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // 検索オートコンプリート: 入力中のキーワードに前方/部分一致するイベント名を返す
 export async function GET(req: NextRequest) {
+  const limited = await enforceRateLimit(req, {
+    name: "suggest",
+    limit: 30,
+    windowSec: 10,
+  });
+  if (limited) return limited;
+
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
   if (q.length < 2) {
     return NextResponse.json({ suggestions: [] });

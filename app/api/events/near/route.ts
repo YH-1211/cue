@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { nearbyAreas, type AreaName } from "@/lib/tokyo-areas";
 import { startOfTodayJstIso } from "@/lib/datetime";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 const DEFAULT_RADIUS_KM = 5;
 const MAX_RADIUS_KM = 20;
 const MAX_LIMIT = 20;
 
 export async function GET(req: NextRequest) {
+  const limited = await enforceRateLimit(req, {
+    name: "near",
+    limit: 30,
+    windowSec: 10,
+  });
+  if (limited) return limited;
+
   const { searchParams } = req.nextUrl;
 
   const lat = Number(searchParams.get("lat"));

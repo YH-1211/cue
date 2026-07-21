@@ -1,7 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { GATE_COOKIE, GATE_MAX_AGE, gateToken, sanitizeNext } from "@/lib/gate";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  // 合言葉の総当たり (ブルートフォース) 対策として厳しめに制限
+  const limited = await enforceRateLimit(req, {
+    name: "gate",
+    limit: 10,
+    windowSec: 60,
+  });
+  if (limited) return limited;
+
   const form = await req.formData();
   const password = String(form.get("password") ?? "");
   const next = sanitizeNext(String(form.get("next") ?? "/"));

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // 匿名の計測用 Cookie（ログインとは無関係。個人特定はしない）
 const SID_COOKIE = "cue_sid";
@@ -16,6 +17,13 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit(req, {
+    name: "track",
+    limit: 60,
+    windowSec: 60,
+  });
+  if (limited) return limited;
+
   let body: { eventId?: unknown; kind?: unknown };
   try {
     body = await req.json();
