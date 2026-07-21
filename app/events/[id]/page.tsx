@@ -74,10 +74,77 @@ type EventDetail = {
   ticket_url: string | null;
   ticket_sale_starts_at: string | null;
   ticket_sale_ends_at: string | null;
+  is_free: boolean | null;
+  lat: number | null;
+  lng: number | null;
   approved: boolean;
   submitted_by: string | null;
   event_tags: { tags: { slug: string; name: string } | null }[];
 };
+
+// 検索エンジン向けの構造化データ (schema.org/Event)。
+// これを埋めると Google 検索でイベントのリッチリザルト(日付・場所つきカード)が
+// 出て、検索結果から直接この詳細ページに来られるようになる。
+// 承認済み & 開催日ありのイベントのみ出す (未承認・日程未定はリッチ対象外)。
+function buildEventJsonLd(e: EventDetail): Record<string, unknown> | null {
+  if (!e.approved || !e.starts_at) return null;
+
+  const url = `${SITE.url}/events/${e.id}`;
+  const image = e.cover_image_url || `${SITE.url}/api/og/event/${e.id}`;
+
+  const place: Record<string, unknown> = {
+    "@type": "Place",
+    name: e.venue_name || e.area || "会場未定",
+  };
+  const addr = e.address || e.area;
+  if (addr) {
+    place.address = {
+      "@type": "PostalAddress",
+      streetAddress: addr,
+      addressCountry: "JP",
+    };
+  }
+  if (e.lat != null && e.lng != null) {
+    place.geo = {
+      "@type": "GeoCoordinates",
+      latitude: e.lat,
+      longitude: e.lng,
+    };
+  }
+
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name: e.title,
+    startDate: new Date(e.starts_at).toISOString(),
+    eventStatus: "https://schema.org/EventScheduled",
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    location: place,
+    image: [image],
+    url,
+  };
+  if (e.ends_at) jsonLd.endDate = new Date(e.ends_at).toISOString();
+  if (e.description) jsonLd.description = e.description.trim().slice(0, 500);
+
+  if (e.is_free) {
+    jsonLd.offers = {
+      "@type": "Offer",
+      price: 0,
+      priceCurrency: "JPY",
+      availability: "https://schema.org/InStock",
+      url: e.ticket_url || e.official_url,
+    };
+  } else if (e.ticket_url) {
+    jsonLd.offers = {
+      "@type": "Offer",
+      priceCurrency: "JPY",
+      availability: "https://schema.org/InStock",
+      url: e.ticket_url,
+    };
+  }
+
+  return jsonLd;
+}
 
 export async function generateMetadata({
   params,
@@ -144,7 +211,8 @@ export default async function EventDetailPage({
       `
         id, title, description, starts_at, ends_at,
         venue_name, address, area, category, cover_image_url, has_food_stalls,
-        official_url, ticket_url, ticket_sale_starts_at, ticket_sale_ends_at, approved, submitted_by,
+        official_url, ticket_url, ticket_sale_starts_at, ticket_sale_ends_at,
+        is_free, lat, lng, approved, submitted_by,
         event_tags ( tags ( slug, name ) )
       `
     )
@@ -291,8 +359,16 @@ export default async function EventDetailPage({
     }
   }
 
+  const jsonLd = buildEventJsonLd(event);
+
   return (
     <article className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
       {event.approved && <TrackView eventId={event.id} />}
       <nav className="mb-4 text-sm">
         <BackButton fallbackHref="/events" label="戻る" />
