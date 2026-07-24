@@ -36,6 +36,7 @@ type EventRow = {
   cover_image_url: string | null;
   has_food_stalls: boolean | null;
   ends_at: string | null;
+  is_permanent: boolean | null;
 };
 
 type SearchParams = {
@@ -343,7 +344,8 @@ function SearchListView({
                         {(() => {
                           const s = eventScheduleLabel(
                             event.starts_at,
-                            event.ends_at
+                            event.ends_at,
+                            event.is_permanent ?? false
                           );
                           return (
                             <time

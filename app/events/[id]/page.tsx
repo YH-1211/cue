@@ -75,6 +75,7 @@ type EventDetail = {
   ticket_sale_starts_at: string | null;
   ticket_sale_ends_at: string | null;
   is_free: boolean | null;
+  is_permanent: boolean | null;
   lat: number | null;
   lng: number | null;
   approved: boolean;
@@ -212,7 +213,7 @@ export default async function EventDetailPage({
         id, title, description, starts_at, ends_at,
         venue_name, address, area, category, cover_image_url, has_food_stalls,
         official_url, ticket_url, ticket_sale_starts_at, ticket_sale_ends_at,
-        is_free, lat, lng, approved, submitted_by,
+        is_free, is_permanent, lat, lng, approved, submitted_by,
         event_tags ( tags ( slug, name ) )
       `
     )
@@ -296,16 +297,18 @@ export default async function EventDetailPage({
     }
   }
 
+  const isPermanent = event.is_permanent ?? false;
   const hasDate = event.starts_at != null;
   const eventEndIso = event.ends_at ?? event.starts_at;
   // Server Component なので描画時の現在時刻取得で問題ない。
   const now = new Date();
   const nowMs = now.getTime();
+  // 常設イベントは終了日を持たないので、過去/期限切れ判定はしない。
   const isPast =
-    eventEndIso != null && new Date(eventEndIso).getTime() < nowMs;
+    !isPermanent && eventEndIso != null && new Date(eventEndIso).getTime() < nowMs;
   // 掲載期限切れ: 開催日の翌日 0:00 JST を過ぎた状態。
   // 開催当日いっぱいはアクティブ表示し、翌日からグレーアウト+リンク無効化。
-  const isExpired = isEventExpired(eventEndIso, now);
+  const isExpired = !isPermanent && isEventExpired(eventEndIso, now);
   const canReport = event.approved && isPast;
 
   // チケット販売終了の判定
@@ -427,7 +430,16 @@ export default async function EventDetailPage({
       <dl className="grid grid-cols-1 gap-4 rounded-lg border border-border bg-card p-5 text-sm sm:grid-cols-[120px_1fr]">
         <dt className="font-medium text-muted-foreground">開催日時</dt>
         <dd>
-          {event.starts_at ? (
+          {event.is_permanent ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                常設
+              </span>
+              <span className="text-muted-foreground">
+                会期の定めなく開催中
+              </span>
+            </span>
+          ) : event.starts_at ? (
             <>
               {formatEventDateTime(event.starts_at)}
               {event.ends_at && (

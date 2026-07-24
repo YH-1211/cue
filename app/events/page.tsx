@@ -33,6 +33,7 @@ type EventRow = {
   category: EventCategory;
   cover_image_url: string | null;
   has_food_stalls: boolean | null;
+  is_permanent: boolean | null;
 };
 
 export default async function EventsPage({
@@ -60,7 +61,7 @@ export default async function EventsPage({
   let query = supabase
     .from("events")
     .select(
-      "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls",
+      "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls, is_permanent",
     )
     .eq("approved", true)
     .gte("effective_end", startOfTodayJstIso())
@@ -82,7 +83,7 @@ export default async function EventsPage({
   let tbdQuery = supabase
     .from("events")
     .select(
-      "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls",
+      "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls, is_permanent",
     )
     .eq("approved", true)
     .is("starts_at", null)
@@ -254,9 +255,13 @@ function EventCard({ event }: { event: EventRow }) {
               >
                 {CATEGORY_LABELS[event.category]}
               </Badge>
-              {event.starts_at ? (
+              {event.starts_at || event.is_permanent ? (
                 (() => {
-                  const s = eventScheduleLabel(event.starts_at, event.ends_at);
+                  const s = eventScheduleLabel(
+                    event.starts_at,
+                    event.ends_at,
+                    event.is_permanent ?? false
+                  );
                   return (
                     <time
                       className={`text-xs ${

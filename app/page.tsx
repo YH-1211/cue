@@ -50,6 +50,7 @@ type EventRow = {
   category: EventCategory;
   cover_image_url: string | null;
   has_food_stalls: boolean | null;
+  is_permanent: boolean | null;
 };
 
 export default async function Home() {
@@ -82,7 +83,7 @@ export default async function Home() {
   );
 
   const SELECT =
-    "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls";
+    "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls, is_permanent";
   // 掲載カットオフ: 開催当日いっぱい表示し、翌日 0:00 JST に消す
   const nowIso = startOfTodayJstIso();
 
@@ -268,7 +269,8 @@ export default async function Home() {
                         {(() => {
                           const s = eventScheduleLabel(
                             event.starts_at,
-                            event.ends_at
+                            event.ends_at,
+                            event.is_permanent ?? false
                           );
                           return (
                             <time

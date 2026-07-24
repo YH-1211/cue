@@ -58,6 +58,7 @@ type SavedEventRow = {
     cover_image_url: string | null;
     has_food_stalls: boolean | null;
     ends_at: string | null;
+    is_permanent: boolean | null;
   } | null;
 };
 
@@ -71,6 +72,7 @@ type SubmittedEventRow = {
   cover_image_url: string | null;
   has_food_stalls: boolean | null;
   ends_at: string | null;
+  is_permanent: boolean | null;
   approved: boolean;
   created_at: string;
 };
@@ -118,7 +120,7 @@ export default async function MePage() {
         `
           created_at,
           events (
-            id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls
+            id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls, is_permanent
           )
         `
       )
@@ -127,7 +129,7 @@ export default async function MePage() {
     supabase
       .from("events")
       .select(
-        "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls, approved, created_at"
+        "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls, is_permanent, approved, created_at"
       )
       .eq("submitted_by", user.id)
       .eq("source_type", "user")
@@ -163,7 +165,8 @@ export default async function MePage() {
       (e): e is NonNullable<SavedEventRow["events"]> => e !== null
     )
     // 開催日翌日 0:00 JST を過ぎた過去イベントは「行きたい」から除外
-    .filter((e) => !isEventExpired(e.ends_at ?? e.starts_at));
+    // (常設イベントは終了日が無く常に表示し続ける)
+    .filter((e) => e.is_permanent || !isEventExpired(e.ends_at ?? e.starts_at));
 
   const submittedEvents = (submittedRes.data ?? []) as SubmittedEventRow[];
 
@@ -278,11 +281,12 @@ export default async function MePage() {
                       >
                         {CATEGORY_LABELS[event.category]}
                       </Badge>
-                      {event.starts_at ? (
+                      {event.starts_at || event.is_permanent ? (
                         (() => {
                           const s = eventScheduleLabel(
                             event.starts_at,
-                            event.ends_at
+                            event.ends_at,
+                            event.is_permanent ?? false
                           );
                           return (
                             <time
@@ -378,7 +382,8 @@ export default async function MePage() {
                       {(() => {
                         const s = eventScheduleLabel(
                           event.starts_at,
-                          event.ends_at
+                          event.ends_at,
+                          event.is_permanent ?? false
                         );
                         return (
                           <time

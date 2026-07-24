@@ -285,13 +285,16 @@ function tokyoDateKey(iso: string): string {
 }
 
 // イベントの日程ラベル。会期もの(開始〜終了)が開催中なら「開催中」を示す。
+// - is_permanent: 常設 (終了日のないミュージアム等) → "常設"
 // - starts_at が無い: 日程調整中
 // - 開催中(now が starts_at〜ends_at の間): { ongoing:true, text:"開催中・〜M/D まで" }
 // - それ以外(未来 or 単日): 通常の日時表示
 export function eventScheduleLabel(
   startsAt: string | null,
-  endsAt: string | null
+  endsAt: string | null,
+  isPermanent = false
 ): { text: string; ongoing: boolean } {
+  if (isPermanent) return { text: "常設", ongoing: true };
   if (!startsAt) return { text: "日程調整中", ongoing: false };
 
   const now = Date.now();
