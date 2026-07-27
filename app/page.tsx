@@ -87,6 +87,13 @@ export default async function Home() {
   // 掲載カットオフ: 開催当日いっぱい表示し、翌日 0:00 JST に消す
   const nowIso = startOfTodayJstIso();
 
+  // 掲載中(開催前〜当日)イベントの総数。ヒーローに表示する。
+  const { count: totalCount } = await supabase
+    .from("events")
+    .select("id", { count: "exact", head: true })
+    .eq("approved", true)
+    .gte("effective_end", nowIso);
+
   // 興味タグがあれば、対象カテゴリのイベントをDBから直接優先取得し、
   // 残り枠を一般のイベント(開催が近い順)で補う。
   let events: EventRow[];
@@ -144,6 +151,15 @@ export default async function Home() {
             <p className="max-w-md text-lg font-medium text-foreground sm:text-xl">
               東京と関東のイベント情報を、まとめてチェック。
             </p>
+            {typeof totalCount === "number" && (
+              <p className="text-sm text-muted-foreground">
+                現在{" "}
+                <span className="font-semibold text-foreground">
+                  {totalCount.toLocaleString()}
+                </span>{" "}
+                件のイベントを掲載中
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap gap-2">
               <Link
                 href="/events"
