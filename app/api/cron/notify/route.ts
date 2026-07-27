@@ -236,8 +236,9 @@ export async function GET(req: NextRequest) {
   }
 
   // ============================================
-  // 5c) 興味タグのチケット発売通知 (毎時: 発売24h前 ±30分)
+  // 5c) 興味タグのチケット発売通知 (毎回: 25時間以内に発売開始)
   //     保存不要。興味タグに合うイベントの発売開始を先回り通知。
+  //     cron は 1 日 2 回 (9時/19時 JST) なので窓は広め、重複は log で防止。
   // ============================================
   result.interest_ticket_24h = await sendInterestTicket(admin);
 
@@ -840,18 +841,17 @@ async function sendInterestUpcoming(
 }
 
 // =====================================================
-// 興味タグのチケット発売通知 (毎時: 発売24h前 ±30分)
+// 興味タグのチケット発売通知 (発売開始が25時間以内)
 //   保存不要。興味タグに合うイベントのチケット発売開始を先回り通知。
-//   kind: interest_ticket_24h。重複は notification_log で防止。
+//   cron は 1 日 2 回 (最大14h間隔) なので、窓は [now, now+25h] と広めにとり、
+//   重複は notification_log (user_id, interest_ticket_24h, event_id) で防止。
 // =====================================================
 async function sendInterestTicket(
   admin: ReturnType<typeof createAdminClient>
 ): Promise<number> {
   const now = new Date();
-  const target = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const windowMs = 30 * 60 * 1000;
-  const from = new Date(target.getTime() - windowMs);
-  const to = new Date(target.getTime() + windowMs);
+  const from = now;
+  const to = new Date(now.getTime() + 25 * 60 * 60 * 1000);
 
   // 発売開始がこの窓に入る承認済イベント (先に小さく絞る)
   const { data: eventsData } = await admin
