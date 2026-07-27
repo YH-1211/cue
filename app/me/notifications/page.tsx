@@ -18,7 +18,7 @@ export default async function NotificationsPage() {
     supabase
       .from("profiles")
       .select(
-        "notify_interest_weekly, notify_reminder_eve, notify_reminder_morning, notify_ticket, home_area, home_radius_km, notify_nearby_match, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end, notify_interest_min_score"
+        "notify_interest_weekly, notify_reminder_eve, notify_reminder_morning, notify_ticket, notify_interest_upcoming, notify_interest_ticket, home_area, home_radius_km, notify_nearby_match, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end, notify_interest_min_score"
       )
       .eq("id", user.id)
       .maybeSingle(),
@@ -35,6 +35,8 @@ export default async function NotificationsPage() {
     notify_reminder_eve: profile?.notify_reminder_eve ?? true,
     notify_reminder_morning: profile?.notify_reminder_morning ?? true,
     notify_ticket: profile?.notify_ticket ?? true,
+    notify_interest_upcoming: profile?.notify_interest_upcoming ?? true,
+    notify_interest_ticket: profile?.notify_interest_ticket ?? true,
   };
   const homeAreaInitial = {
     home_area: (profile?.home_area as string | null) ?? null,

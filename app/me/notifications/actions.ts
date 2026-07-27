@@ -60,6 +60,8 @@ export type NotificationPrefs = {
   notify_reminder_eve: boolean;
   notify_reminder_morning: boolean;
   notify_ticket: boolean;
+  notify_interest_upcoming: boolean;
+  notify_interest_ticket: boolean;
 };
 
 export type HomeAreaSettings = {

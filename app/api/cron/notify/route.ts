@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { sendPushToUser } from "@/lib/web-push";
 import { jstParts, jstDateToUtc } from "@/lib/datetime";
-import { CATEGORY_LABELS, type EventCategory } from "@/lib/events";
+import {
+  CATEGORY_LABELS,
+  categoriesUnderParent,
+  isParentCategory,
+  type EventCategory,
+} from "@/lib/events";
 import {
   AREA_COORDS,
   nearbyAreas,
@@ -114,6 +119,10 @@ export async function GET(req: NextRequest) {
     ticket_end_soon: 0,
     ticket_end_over: 0,
     interest_weekly: 0,
+    interest_upcoming_7d: 0,
+    interest_upcoming_1d: 0,
+    interest_upcoming_morning: 0,
+    interest_ticket_24h: 0,
     nearby_match: 0,
     saved_search: 0,
   };
@@ -213,6 +222,24 @@ export async function GET(req: NextRequest) {
   if (jst.hour === 9) {
     result.nearby_match = await sendNearbyMatch(admin);
   }
+
+  // ============================================
+  // 5b) 興味タグの開催前リマインダー (日次: JST 朝 9 時帯に1回)
+  //     保存していなくても、興味タグに合うイベントの開催が近づいたら通知。
+  //     7日前 / 前日、花火 (festival_hanabi) だけ当日朝も。
+  // ============================================
+  if (jst.hour === 9) {
+    const up = await sendInterestUpcoming(admin);
+    result.interest_upcoming_7d = up.d7;
+    result.interest_upcoming_1d = up.d1;
+    result.interest_upcoming_morning = up.morning;
+  }
+
+  // ============================================
+  // 5c) 興味タグのチケット発売通知 (毎時: 発売24h前 ±30分)
+  //     保存不要。興味タグに合うイベントの発売開始を先回り通知。
+  // ============================================
+  result.interest_ticket_24h = await sendInterestTicket(admin);
 
   // ============================================
   // 6) 保存した検索の新着マッチ (毎時チェック)
@@ -650,6 +677,248 @@ async function sendInterestWeekly(
         .from("notification_log")
         .insert({ user_id: u.id, kind: "interest_weekly", event_id: null });
       sent += 1;
+    }
+  }
+  return sent;
+}
+
+// =====================================================
+// 興味タグ展開: 親カテゴリは配下サブに展開した一致判定用セットにする
+//   例: 「祭り」(festival) → festival_shrine, festival_hanabi, ... を含む
+// =====================================================
+function expandInterestSet(cats: string[] | null | undefined): Set<string> {
+  const set = new Set<string>();
+  for (const c of cats ?? []) {
+    const cat = c as EventCategory;
+    if (isParentCategory(cat)) {
+      for (const sub of categoriesUnderParent(cat)) set.add(sub);
+    } else {
+      set.add(c);
+    }
+  }
+  return set;
+}
+
+type UpcomingEvent = {
+  id: string;
+  title: string;
+  category: EventCategory;
+  starts_at: string;
+  venue_name: string | null;
+  area: string | null;
+};
+
+type InterestUser = {
+  id: string;
+  interest_categories: string[] | null;
+} & QuietPrefs;
+
+// =====================================================
+// 興味タグの開催前リマインダー (日次)
+//   保存不要。興味タグに合う未来開催イベントを、開催日が近づいたら通知する。
+//   - 7日後開催  → kind: interest_upcoming_7d
+//   - 明日開催    → kind: interest_upcoming_1d
+//   - 本日開催 (花火のみ) → kind: interest_upcoming_morning
+//   重複は notification_log (user_id, kind, event_id) で防止。
+// =====================================================
+async function sendInterestUpcoming(
+  admin: ReturnType<typeof createAdminClient>
+): Promise<{ d7: number; d1: number; morning: number }> {
+  const now = new Date();
+  const jst = jstParts(now);
+
+  // 興味タグを持ち、この通知が ON のユーザーをまとめて取得
+  const { data: usersData } = await admin
+    .from("profiles")
+    .select(
+      `id, interest_categories,
+       notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end`
+    )
+    .eq("notify_interest_upcoming", true)
+    .not("interest_categories", "is", null);
+
+  const users = (usersData ?? []) as InterestUser[];
+  if (users.length === 0) return { d7: 0, d1: 0, morning: 0 };
+
+  // 対象ユーザーごとに展開済み興味セットをキャッシュ
+  const userSets = users.map((u) => ({
+    user: u,
+    set: expandInterestSet(u.interest_categories),
+  }));
+
+  // 指定した JST 日の 0:00〜翌0:00 直前を UTC 範囲で表現
+  function jstDayRange(offsetDays: number): { from: string; to: string } {
+    const from = jstDateToUtc(jst.year, jst.month, jst.day + offsetDays, 0);
+    const to = new Date(
+      jstDateToUtc(jst.year, jst.month, jst.day + offsetDays + 1, 0).getTime() - 1
+    );
+    return { from: from.toISOString(), to: to.toISOString() };
+  }
+
+  // 1つのバケツ (対象日 × kind) を処理して送信件数を返す
+  async function runBucket(
+    kind:
+      | "interest_upcoming_7d"
+      | "interest_upcoming_1d"
+      | "interest_upcoming_morning",
+    offsetDays: number,
+    titlePrefix: string,
+    hanabiOnly: boolean
+  ): Promise<number> {
+    const { from, to } = jstDayRange(offsetDays);
+    let query = admin
+      .from("events")
+      .select("id, title, category, starts_at, venue_name, area")
+      .eq("approved", true)
+      .gte("starts_at", from)
+      .lte("starts_at", to);
+    if (hanabiOnly) query = query.eq("category", "festival_hanabi");
+
+    const { data: eventsData } = await query;
+    const events = (eventsData ?? []) as UpcomingEvent[];
+    if (events.length === 0) return 0;
+
+    let sent = 0;
+    for (const { user, set } of userSets) {
+      if (isQuietNow(user, new Date())) continue;
+      for (const ev of events) {
+        if (!set.has(ev.category)) continue;
+
+        const dup = await admin
+          .from("notification_log")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("kind", kind)
+          .eq("event_id", ev.id)
+          .maybeSingle();
+        if (dup.data) continue;
+
+        const time = new Date(ev.starts_at).toLocaleString("ja-JP", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Asia/Tokyo",
+        });
+        const place = [ev.area, ev.venue_name].filter(Boolean).join(" / ");
+
+        const ok = await sendPushToUser(admin, user.id, {
+          title: `${titlePrefix} ${ev.title}`,
+          body: place ? `${time} · ${place}` : time,
+          url: `/events/${ev.id}`,
+          tag: `${kind}:${ev.id}`,
+        });
+        if (ok > 0) {
+          await admin
+            .from("notification_log")
+            .insert({ user_id: user.id, kind, event_id: ev.id });
+          sent += 1;
+        }
+      }
+    }
+    return sent;
+  }
+
+  const d7 = await runBucket(
+    "interest_upcoming_7d",
+    7,
+    "7日後開催 (興味あり):",
+    false
+  );
+  const d1 = await runBucket(
+    "interest_upcoming_1d",
+    1,
+    "明日開催 (興味あり):",
+    false
+  );
+  const morning = await runBucket(
+    "interest_upcoming_morning",
+    0,
+    "本日開催 (花火):",
+    true
+  );
+
+  return { d7, d1, morning };
+}
+
+// =====================================================
+// 興味タグのチケット発売通知 (毎時: 発売24h前 ±30分)
+//   保存不要。興味タグに合うイベントのチケット発売開始を先回り通知。
+//   kind: interest_ticket_24h。重複は notification_log で防止。
+// =====================================================
+async function sendInterestTicket(
+  admin: ReturnType<typeof createAdminClient>
+): Promise<number> {
+  const now = new Date();
+  const target = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const windowMs = 30 * 60 * 1000;
+  const from = new Date(target.getTime() - windowMs);
+  const to = new Date(target.getTime() + windowMs);
+
+  // 発売開始がこの窓に入る承認済イベント (先に小さく絞る)
+  const { data: eventsData } = await admin
+    .from("events")
+    .select("id, title, category, ticket_sale_starts_at")
+    .eq("approved", true)
+    .gte("ticket_sale_starts_at", from.toISOString())
+    .lte("ticket_sale_starts_at", to.toISOString());
+
+  const events = (eventsData ?? []) as Array<{
+    id: string;
+    title: string;
+    category: EventCategory;
+    ticket_sale_starts_at: string | null;
+  }>;
+  if (events.length === 0) return 0;
+
+  // 興味タグを持ち、この通知が ON のユーザー
+  const { data: usersData } = await admin
+    .from("profiles")
+    .select(
+      `id, interest_categories,
+       notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end`
+    )
+    .eq("notify_interest_ticket", true)
+    .not("interest_categories", "is", null);
+
+  const users = (usersData ?? []) as InterestUser[];
+  if (users.length === 0) return 0;
+
+  let sent = 0;
+  for (const u of users) {
+    if (isQuietNow(u, new Date())) continue;
+    const set = expandInterestSet(u.interest_categories);
+
+    for (const ev of events) {
+      if (!ev.ticket_sale_starts_at || !set.has(ev.category)) continue;
+
+      const dup = await admin
+        .from("notification_log")
+        .select("id")
+        .eq("user_id", u.id)
+        .eq("kind", "interest_ticket_24h")
+        .eq("event_id", ev.id)
+        .maybeSingle();
+      if (dup.data) continue;
+
+      const ok = await sendPushToUser(admin, u.id, {
+        title: `明日チケット発売 (興味あり): ${ev.title}`,
+        body: new Date(ev.ticket_sale_starts_at).toLocaleString("ja-JP", {
+          month: "numeric",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Asia/Tokyo",
+        }),
+        url: `/events/${ev.id}`,
+        tag: `interest_ticket_24h:${ev.id}`,
+      });
+      if (ok > 0) {
+        await admin.from("notification_log").insert({
+          user_id: u.id,
+          kind: "interest_ticket_24h",
+          event_id: ev.id,
+        });
+        sent += 1;
+      }
     }
   }
   return sent;

@@ -278,6 +278,20 @@ export function NotificationsClient({
             disabled={pending}
             onToggle={() => togglePref("notify_interest_weekly")}
           />
+          <PrefRow
+            label="興味イベントの開催前リマインダー"
+            description="行きたい登録なしでも、興味タグに合うイベントの開催が近づいたら (7日前・前日、花火は当日朝も) お知らせ。"
+            checked={prefs.notify_interest_upcoming}
+            disabled={pending}
+            onToggle={() => togglePref("notify_interest_upcoming")}
+          />
+          <PrefRow
+            label="興味イベントのチケット発売"
+            description="興味タグに合うイベントのチケット発売開始 (24 時間前) を先回りでお知らせ。"
+            checked={prefs.notify_interest_ticket}
+            disabled={pending}
+            onToggle={() => togglePref("notify_interest_ticket")}
+          />
         </ul>
       </div>
 
