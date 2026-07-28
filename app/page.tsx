@@ -17,7 +17,7 @@ import {
   isParentCategory,
   type EventCategory,
 } from "@/lib/events";
-import { startOfTodayJstIso } from "@/lib/datetime";
+import { startOfTodayJstIso, jstParts, jstDateToUtc } from "@/lib/datetime";
 
 // トップページ固有のメタデータ。タイトル/OGP はレイアウトの既定値を使い、
 // ここでは正規URL (canonical) を明示して重複URL評価を防ぐ。
@@ -133,6 +133,32 @@ export default async function Home() {
     events = (data ?? []) as EventRow[];
   }
 
+  // 今週末 (JST の次の土曜 0:00 〜 月曜 0:00) に開催されるイベント。
+  // 検索の「今週末」フィルタと同じ範囲計算にして体験を揃える。
+  const jst = jstParts(new Date());
+  const daysUntilSat = (6 - jst.dow + 7) % 7;
+  const weekendFrom = jstDateToUtc(
+    jst.year,
+    jst.month,
+    jst.day + daysUntilSat,
+    0
+  ).toISOString();
+  const weekendTo = jstDateToUtc(
+    jst.year,
+    jst.month,
+    jst.day + daysUntilSat + 2,
+    0
+  ).toISOString();
+  const { data: weekendData } = await supabase
+    .from("events")
+    .select(SELECT)
+    .eq("approved", true)
+    .gte("starts_at", weekendFrom)
+    .lt("starts_at", weekendTo)
+    .order("starts_at", { ascending: true })
+    .limit(10);
+  const weekendEvents = (weekendData ?? []) as EventRow[];
+
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 pb-16 sm:px-6">
       {/* ヒーロー: PC では左にブランド、右にカテゴリタイルの2カラム */}
@@ -214,6 +240,32 @@ export default async function Home() {
         <NearbyEvents />
       </div>
 
+      {/* 今週末に開催 (日付軸の導線) */}
+      {weekendEvents.length > 0 && (
+        <section className="mb-12">
+          <div className="mb-4 flex items-end justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight sm:text-xl">
+              <span
+                aria-hidden
+                className="h-5 w-1 shrink-0 rounded-full bg-primary"
+              />
+              今週末に開催
+            </h2>
+            <Link
+              href="/search?date=weekend"
+              className="text-xs text-muted-foreground hover:text-foreground sm:text-sm"
+            >
+              すべて見る →
+            </Link>
+          </div>
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            {weekendEvents.map((event) => (
+              <HomeEventCard key={event.id} event={event} />
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* これからのCue */}
       <section>
         <div className="mb-4 flex items-end justify-between">
@@ -255,69 +307,87 @@ export default async function Home() {
         ) : (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {events.map((event) => (
-              <li key={event.id}>
-                <Link
-                  href={`/events/${event.id}`}
-                  className="group block focus:outline-none"
-                >
-                  <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
-                    <EventCover
-                      coverImageUrl={event.cover_image_url}
-                      title={event.title}
-                      category={event.category}
-                      hasFoodStalls={event.has_food_stalls}
-                      className="h-40 w-full"
-                    />
-                    <CardContent className="flex flex-col gap-2 p-4">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="secondary"
-                          className={categoryBadgeClass(event.category)}
-                        >
-                          {CATEGORY_LABELS[event.category]}
-                        </Badge>
-                        {hasInterests &&
-                          interestCategories.includes(event.category) && (
-                            <Badge className="bg-primary text-primary-foreground transition-transform duration-300 group-hover:scale-105 hover:bg-primary">
-                              おすすめ
-                            </Badge>
-                          )}
-                        {(() => {
-                          const s = eventScheduleLabel(
-                            event.starts_at,
-                            event.ends_at,
-                            event.is_permanent ?? false
-                          );
-                          return (
-                            <time
-                              className={`text-xs ${
-                                s.ongoing
-                                  ? "font-medium text-primary"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
-                              {s.text}
-                            </time>
-                          );
-                        })()}
-                      </div>
-                      <h3 className="line-clamp-2 text-base font-semibold leading-snug">
-                        {event.title}
-                      </h3>
-                      {(event.venue_name || event.area) && (
-                        <p className="line-clamp-1 text-sm text-muted-foreground">
-                          {event.area && `${event.area} / `}
-                          {event.venue_name}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Link>
-              </li>
+              <HomeEventCard
+                key={event.id}
+                event={event}
+                recommended={
+                  hasInterests && interestCategories.includes(event.category)
+                }
+              />
             ))}
           </ul>
         )}
       </section>
     </div>
+  );
+}
+
+// ホームのイベントカード。おすすめバッジは興味タグ一致時のみ表示。
+function HomeEventCard({
+  event,
+  recommended = false,
+}: {
+  event: EventRow;
+  recommended?: boolean;
+}) {
+  return (
+    <li>
+      <Link
+        href={`/events/${event.id}`}
+        className="group block focus:outline-none"
+      >
+        <Card className="h-full overflow-hidden transition-shadow group-hover:shadow-lg group-focus-visible:ring-2 group-focus-visible:ring-ring">
+          <EventCover
+            coverImageUrl={event.cover_image_url}
+            title={event.title}
+            category={event.category}
+            hasFoodStalls={event.has_food_stalls}
+            className="h-40 w-full"
+          />
+          <CardContent className="flex flex-col gap-2 p-4">
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="secondary"
+                className={categoryBadgeClass(event.category)}
+              >
+                {CATEGORY_LABELS[event.category]}
+              </Badge>
+              {recommended && (
+                <Badge className="bg-primary text-primary-foreground transition-transform duration-300 group-hover:scale-105 hover:bg-primary">
+                  おすすめ
+                </Badge>
+              )}
+              {(() => {
+                const s = eventScheduleLabel(
+                  event.starts_at,
+                  event.ends_at,
+                  event.is_permanent ?? false
+                );
+                return (
+                  <time
+                    className={`text-xs ${
+                      s.ongoing
+                        ? "font-medium text-primary"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {s.text}
+                  </time>
+                );
+              })()}
+            </div>
+            <h3 className="line-clamp-2 text-base font-semibold leading-snug">
+              {event.title}
+            </h3>
+            {(event.venue_name || event.area) && (
+              <p className="line-clamp-1 text-sm text-muted-foreground">
+                {event.area && `${event.area} / `}
+                {event.venue_name}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </Link>
+    </li>
   );
 }
