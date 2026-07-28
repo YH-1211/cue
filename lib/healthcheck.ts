@@ -23,7 +23,11 @@ const NEAR_TERM_DAYS = 14;
 const STALE_DAYS = 30;
 // URL fetch の並列数とタイムアウト
 const FETCH_CONCURRENCY = 10;
-const FETCH_TIMEOUT_MS = 4000;
+const FETCH_TIMEOUT_MS = 8000;
+// タイムアウト/接続失敗のときだけリトライする回数と待ち時間。
+// 一時的な瞬断で dead_link を誤検知しないため (HTTP 4xx/5xx は確定的な死なのでリトライしない)。
+const NETWORK_RETRIES = 1;
+const RETRY_DELAY_MS = 1500;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -90,8 +94,8 @@ type ProbeResult =
   | { ok: true; html: string | null }
   | { ok: false; status: number; label: string };
 
-// official_url を GET して、到達性と (取れれば) HTML 先頭を返す。
-async function probeUrl(pageUrl: string): Promise<ProbeResult> {
+// official_url を1回 GET して、到達性と (取れれば) HTML 先頭を返す。
+async function probeOnce(pageUrl: string): Promise<ProbeResult> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -132,6 +136,18 @@ async function probeUrl(pageUrl: string): Promise<ProbeResult> {
     const aborted = e instanceof Error && e.name === "AbortError";
     return { ok: false, status: 0, label: aborted ? "タイムアウト" : "接続失敗" };
   }
+}
+
+// official_url を GET する。タイムアウト/接続失敗 (status 0) のときだけリトライし、
+// 一時的な瞬断による dead_link 誤検知を防ぐ。HTTP 4xx/5xx は確定的な死なので即返す。
+async function probeUrl(pageUrl: string): Promise<ProbeResult> {
+  let last = await probeOnce(pageUrl);
+  for (let i = 0; i < NETWORK_RETRIES; i++) {
+    if (last.ok || last.status !== 0) return last; // 成功 or 確定的なエラーは即確定
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+    last = await probeOnce(pageUrl);
+  }
+  return last;
 }
 
 // HTML 中の JSON-LD から schema.org Event.startDate を集め、最も早い日付を返す。
