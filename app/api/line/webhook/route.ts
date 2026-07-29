@@ -44,7 +44,7 @@ const WELCOME =
 
 // ---- 意図判定 ----------------------------------------------------------
 
-type Intent = "event" | "help" | "greeting" | "unknown";
+type Intent = "event" | "help" | "greeting" | "keyword" | "unknown";
 
 const EVENT_WORDS = [
   "イベント", "いべんと", "近く", "ちかく", "近所", "週末", "おすすめ",
@@ -66,10 +66,16 @@ const GREETING_WORDS = [
   "こんにちは", "おはよう", "こんばんは", "はじめまして", "よろしく",
   "hello", "hi", "hey", "やあ", "ちわ", "こんちは",
 ];
+const KEYWORD_WORDS = [
+  "キーワード", "きーわーど", "メニュー", "めにゅー", "一覧", "コマンド",
+  "何て送れば", "なんて送れば", "なにを送れば", "何を送れば", "何が送れる",
+  "なにが送れる",
+];
 
 function classify(text: string): Intent {
   const t = text.toLowerCase();
   if (EVENT_WORDS.some((w) => t.includes(w.toLowerCase()))) return "event";
+  if (KEYWORD_WORDS.some((w) => t.includes(w.toLowerCase()))) return "keyword";
   if (HELP_WORDS.some((w) => t.includes(w.toLowerCase()))) return "help";
   if (GREETING_WORDS.some((w) => t.includes(w.toLowerCase()))) return "greeting";
   return "unknown";
@@ -310,7 +316,27 @@ const HELP_TEXT =
   "⭐ 気になるイベントを保存\n\n" +
   "アプリはこちら → " +
   SITE.url +
-  "\n\n「イベント」と送っていただくと、近々の開催をご案内します！";
+  "\n\nこのトークでは、たとえばこんな言葉が使えます👇\n" +
+  "・「イベント」→ 近々の開催をご案内\n" +
+  "・「今日」「今週末」→ その日程で絞り込み\n" +
+  "・「祭り」「ライブ」「アート」→ ジャンルで絞り込み\n" +
+  "・「今週末の花火」のように組み合わせもOK\n\n" +
+  "使える言葉の一覧は「キーワード」と送ると確認できます！";
+
+const KEYWORD_TEXT =
+  "このトークで送れる言葉の一覧です📝\n\n" +
+  "▼ イベントを見る\n" +
+  "「イベント」「近くのイベント」「おすすめ」\n\n" +
+  "▼ 日程でしぼる\n" +
+  "「今日」「明日」「今週末」\n\n" +
+  "▼ ジャンルでしぼる\n" +
+  "「祭り」「花火」「ライブ」「音楽」「アート」\n" +
+  "「美術館」「演劇」「グルメ」「マルシェ」\n" +
+  "「映画」「相撲」「野球」など\n\n" +
+  "▼ 組み合わせもOK\n" +
+  "「今週末の花火」「明日のライブ」\n\n" +
+  "▼ その他\n" +
+  "「使い方」→ アプリの説明";
 
 const GREETING_TEXT =
   "こんにちは！Cue です🐾\n" +
@@ -319,6 +345,7 @@ const GREETING_TEXT =
 const FALLBACK_TEXT =
   "うまく聞き取れませんでした🙏\n\n" +
   "・「イベント」→ 近々の開催をご案内\n" +
+  "・「キーワード」→ 送れる言葉の一覧\n" +
   "・「使い方」→ アプリの説明\n" +
   "・連携コード → アカウント連携\n\n" +
   "と送ってみてください！";
@@ -385,6 +412,8 @@ async function handleMessage(ev: LineEvent) {
   let reply: string;
   if (window || category || intent === "event") {
     reply = await buildEventReply(admin, { window, category });
+  } else if (intent === "keyword") {
+    reply = KEYWORD_TEXT;
   } else if (intent === "help") {
     reply = HELP_TEXT;
   } else if (intent === "greeting") {

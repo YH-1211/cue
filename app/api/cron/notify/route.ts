@@ -767,10 +767,14 @@ async function sendInterestUpcoming(
     hanabiOnly: boolean
   ): Promise<number> {
     const { from, to } = jstDayRange(offsetDays);
+    // チケット制イベント (ticket_sale_starts_at あり) は発売タイミングで
+    // sendInterestTicket が通知するため、ここでは非チケット制のみを
+    // 開催タイミングで通知する (二重通知を避ける)。
     let query = admin
       .from("events")
       .select("id, title, category, starts_at, venue_name, area")
       .eq("approved", true)
+      .is("ticket_sale_starts_at", null)
       .gte("starts_at", from)
       .lte("starts_at", to);
     if (hanabiOnly) query = query.eq("category", "festival_hanabi");
