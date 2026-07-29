@@ -77,6 +77,26 @@ export async function pushLineMessage(
   return true;
 }
 
+/** 友だち全員へ一斉配信する (broadcast)。無料プランでは通数が受信者数分カウントされる。 */
+export async function broadcastLineMessage(
+  messages: LineMessage[]
+): Promise<boolean> {
+  if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) return false;
+  const res = await fetch(`${LINE_API}/message/broadcast`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken()}`,
+    },
+    body: JSON.stringify({ messages }),
+  });
+  if (!res.ok) {
+    console.error("line broadcast error", res.status, await res.text());
+    return false;
+  }
+  return true;
+}
+
 /** PushPayload を LINE のテキスト 1 通に整形する。URL があれば末尾に絶対URLで付ける。 */
 function payloadToLineText(payload: PushPayload): string {
   const lines = [payload.title, payload.body].filter(Boolean);

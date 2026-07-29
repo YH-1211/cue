@@ -6,8 +6,10 @@ import {
   CATEGORY_LABELS,
   categoriesUnderParent,
   isParentCategory,
+  eventScheduleLabel,
   type EventCategory,
 } from "@/lib/events";
+import { broadcastLineMessage } from "@/lib/line";
 import {
   AREA_COORDS,
   nearbyAreas,
@@ -119,6 +121,7 @@ export async function GET(req: NextRequest) {
     ticket_end_soon: 0,
     ticket_end_over: 0,
     interest_weekly: 0,
+    line_weekly: 0,
     interest_upcoming_7d: 0,
     interest_upcoming_1d: 0,
     interest_upcoming_morning: 0,
@@ -213,6 +216,14 @@ export async function GET(req: NextRequest) {
   // ============================================
   if (jst.dow === 1 && jst.hour === 9) {
     result.interest_weekly = await sendInterestWeekly(admin);
+  }
+
+  // ============================================
+  // 4b) LINE 週次一斉配信 (JST 日曜 朝 9 時台に1回)
+  //     友だち全員へ「今週開催のイベント」「今週チケット販売開始」を配信。
+  // ============================================
+  if (jst.dow === 0 && jst.hour === 9) {
+    result.line_weekly = await sendLineWeeklyBroadcast(admin);
   }
 
   // ============================================
@@ -926,6 +937,112 @@ async function sendInterestTicket(
     }
   }
   return sent;
+}
+
+// =====================================================
+// LINE 週次一斉配信 (日曜 9 時)
+//   友だち全員へ broadcast。
+//   ・非チケット制で今週開催 → 「今週開催のイベント」
+//   ・チケット制で今週発売開始 → 「今週チケット販売開始」
+// =====================================================
+async function sendLineWeeklyBroadcast(
+  admin: ReturnType<typeof createAdminClient>
+): Promise<number> {
+  if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) return 0;
+
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://cue-taupe-eight.vercel.app";
+  const now = new Date();
+  const jst = jstParts(now);
+  // 今週 = 配信当日 (日曜) 0:00 JST 〜 翌週日曜 0:00 JST の直前
+  const weekStart = jstDateToUtc(jst.year, jst.month, jst.day, 0);
+  const weekEnd = new Date(
+    jstDateToUtc(jst.year, jst.month, jst.day + 7, 0).getTime() - 1
+  );
+  const startIso = weekStart.toISOString();
+  const endIso = weekEnd.toISOString();
+
+  type Row = {
+    id: string;
+    title: string;
+    starts_at: string | null;
+    ends_at: string | null;
+    is_permanent: boolean | null;
+    area: string | null;
+    venue_name: string | null;
+    ticket_sale_starts_at: string | null;
+  };
+
+  // 非チケット制で今週開催
+  const { data: openData } = await admin
+    .from("events")
+    .select(
+      "id, title, starts_at, ends_at, is_permanent, area, venue_name, ticket_sale_starts_at"
+    )
+    .eq("approved", true)
+    .is("ticket_sale_starts_at", null)
+    .gte("starts_at", startIso)
+    .lte("starts_at", endIso)
+    .order("starts_at", { ascending: true })
+    .limit(8);
+
+  // チケット制で今週発売開始
+  const { data: ticketData } = await admin
+    .from("events")
+    .select(
+      "id, title, starts_at, ends_at, is_permanent, area, venue_name, ticket_sale_starts_at"
+    )
+    .eq("approved", true)
+    .gte("ticket_sale_starts_at", startIso)
+    .lte("ticket_sale_starts_at", endIso)
+    .order("ticket_sale_starts_at", { ascending: true })
+    .limit(8);
+
+  const openEvents = (openData ?? []) as Row[];
+  const ticketEvents = (ticketData ?? []) as Row[];
+  if (openEvents.length === 0 && ticketEvents.length === 0) return 0;
+
+  function line(ev: Row): string {
+    const label = eventScheduleLabel(
+      ev.starts_at,
+      ev.ends_at,
+      ev.is_permanent ?? false
+    ).text;
+    const place = [ev.area, ev.venue_name].filter(Boolean).join(" / ");
+    const head = place ? `${label}・${place}` : label;
+    return `・${ev.title}\n  🗓️ ${head}\n  ${origin}/events/${ev.id}`;
+  }
+
+  const blocks: string[] = [];
+  if (openEvents.length > 0) {
+    blocks.push(
+      `🎉 今週開催のイベント\n\n${openEvents.map(line).join("\n\n")}`
+    );
+  }
+  if (ticketEvents.length > 0) {
+    const lines = ticketEvents.map((ev) => {
+      const sale = ev.ticket_sale_starts_at
+        ? new Date(ev.ticket_sale_starts_at).toLocaleString("ja-JP", {
+            month: "numeric",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Asia/Tokyo",
+          })
+        : "";
+      const place = [ev.area, ev.venue_name].filter(Boolean).join(" / ");
+      const meta = [sale ? `発売 ${sale}` : "", place]
+        .filter(Boolean)
+        .join("・");
+      return `・${ev.title}\n  🎟️ ${meta}\n  ${origin}/events/${ev.id}`;
+    });
+    blocks.push(`🎟️ 今週チケット販売開始\n\n${lines.join("\n\n")}`);
+  }
+
+  const text = `${blocks.join("\n\n──────────\n\n")}\n\n気になるイベントは、このままトークで友だちに送って誘えます📲`;
+
+  const ok = await broadcastLineMessage([{ type: "text", text }]);
+  return ok ? 1 : 0;
 }
 
 // =====================================================
