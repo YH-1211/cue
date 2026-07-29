@@ -138,7 +138,7 @@ export function LineSection({ linked, notifyViaLine, addFriendUrl }: Props) {
                 {code}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                このコードを LINE のトークに送ってな (10 分間有効)
+                このコードを LINE のトークに送ってください (10 分間有効)
               </p>
             </div>
           ) : null}

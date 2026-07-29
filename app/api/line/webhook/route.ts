@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { verifyLineSignature, replyLineMessage } from "@/lib/line";
 import { startOfTodayJstIso } from "@/lib/datetime";
+import { eventScheduleLabel } from "@/lib/events";
 import { SITE } from "@/lib/site";
 
 export const runtime = "nodejs";
@@ -22,13 +23,13 @@ const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{6}$`);
 
 const WELCOME =
-  "Cue の友だち追加ありがとう！🎉\n" +
-  "東京・関東のイベントが見つかるアプリ「Cue」やで。\n\n" +
+  "Cue の友だち追加ありがとうございます！🎉\n" +
+  "東京・関東のイベントが見つかるアプリ「Cue」です。\n\n" +
   "このトークでできること👇\n" +
   "・「イベント」→ 近々の開催をお届け\n" +
   "・「使い方」→ アプリの説明\n\n" +
-  "さらに、興味・エリアに合わせた通知を LINE で受け取るには連携が必要やで。" +
-  "Cue アプリの「通知設定」で連携コードを発行して、ここに送ってな！\n\n" +
+  "さらに、興味・エリアに合わせた通知を LINE で受け取るには連携が必要です。" +
+  "Cue アプリの「通知設定」で連携コードを発行して、ここに送ってください！\n\n" +
   SITE.url;
 
 // ---- 意図判定 ----------------------------------------------------------
@@ -106,70 +107,100 @@ async function tryLinkByCode(
 
 // ---- イベント応答 ------------------------------------------------------
 
-function formatJst(iso: string): string {
-  return new Date(iso).toLocaleString("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    month: "numeric",
-    day: "numeric",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+type EventRow = {
+  id: string;
+  title: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_permanent: boolean | null;
+  area: string | null;
+  venue_name: string | null;
+};
+
+// これから開催のもの (常設・開催中を除く未来のイベント)。
+function isUpcoming(e: EventRow): boolean {
+  return (
+    !e.is_permanent &&
+    !!e.starts_at &&
+    new Date(e.starts_at).getTime() > Date.now()
+  );
 }
 
 async function buildEventReply(admin: SupabaseClient): Promise<string> {
+  // 多めに取得して JS 側で「誘って行きやすい順」に並べ替える。
   const { data } = await admin
     .from("events")
-    .select("id, title, starts_at, area")
+    .select("id, title, starts_at, ends_at, is_permanent, area, venue_name")
     .eq("approved", true)
     .gte("effective_end", startOfTodayJstIso())
     .order("starts_at", { ascending: true })
-    .limit(5);
+    .limit(30);
 
-  const events = data ?? [];
+  const events = (data ?? []) as EventRow[];
   if (events.length === 0) {
     return (
-      "いま公開中の直近イベントが見つからへんかったわ🙏\n" +
-      "アプリで探してみて → " +
+      "いま公開中の直近イベントが見つかりませんでした🙏\n" +
+      "アプリで探してみてください → " +
       SITE.url +
       "/search"
     );
   }
 
-  const lines = events.map((e) => {
-    const place = e.area ? ` / ${e.area}` : "";
-    return `・${e.title}\n  📅 ${formatJst(e.starts_at)}${place}\n  ${SITE.url}/events/${e.id}`;
+  // これから開催 (近い順) → 開催中 (終わりが近い順) → 常設 の順で上位5件。
+  const upcoming = events.filter(isUpcoming); // すでに starts_at 昇順
+  const ongoing = events
+    .filter((e) => !isUpcoming(e))
+    .sort((a, b) => {
+      const aPerm = a.is_permanent ? 1 : 0;
+      const bPerm = b.is_permanent ? 1 : 0;
+      if (aPerm !== bPerm) return aPerm - bPerm; // 常設は後ろへ
+      const aEnd = a.ends_at ? new Date(a.ends_at).getTime() : Infinity;
+      const bEnd = b.ends_at ? new Date(b.ends_at).getTime() : Infinity;
+      return aEnd - bEnd; // 終わりが近い順
+    });
+  const picked = [...upcoming, ...ongoing].slice(0, 5);
+
+  const lines = picked.map((e) => {
+    const sched = eventScheduleLabel(
+      e.starts_at,
+      e.ends_at,
+      e.is_permanent ?? false
+    );
+    const where = [e.area, e.venue_name].filter(Boolean).join(" / ");
+    const place = where ? `\n  📍 ${where}` : "";
+    return `・${e.title}\n  🗓️ ${sched.text}${place}\n  ${SITE.url}/events/${e.id}`;
   });
 
   return (
-    "近々のイベントやで！👇\n\n" +
+    "近々行けるイベントです！👇\n\n" +
     lines.join("\n\n") +
-    "\n\nもっと見る → " +
+    "\n\n気になるイベントは、このままトークで友だちに送って誘えます📲\n" +
+    "もっと見る → " +
     SITE.url +
     "/search"
   );
 }
 
 const HELP_TEXT =
-  "Cue は東京・関東のイベントが見つかるアプリやで！🎪\n\n" +
+  "Cue は東京・関東のイベントが見つかるアプリです！🎪\n\n" +
   "🔍 ジャンル・エリアで検索\n" +
   "📍 興味と現在地に合わせたおすすめ通知\n" +
   "🎟️ チケット発売・締切のリマインド\n" +
   "⭐ 気になるイベントを保存\n\n" +
   "アプリはこちら → " +
   SITE.url +
-  "\n\n「イベント」と送ってくれたら、近々の開催を教えるで！";
+  "\n\n「イベント」と送っていただくと、近々の開催をご案内します！";
 
 const GREETING_TEXT =
-  "やあ！Cue やで🐾\n" +
-  "「イベント」で近々の開催、「使い方」でアプリの説明をするで。";
+  "こんにちは！Cue です🐾\n" +
+  "「イベント」で近々の開催、「使い方」でアプリの説明をご案内します。";
 
 const FALLBACK_TEXT =
-  "うまく聞き取れへんかったわ🙏\n\n" +
-  "・「イベント」→ 近々の開催を教えるで\n" +
+  "うまく聞き取れませんでした🙏\n\n" +
+  "・「イベント」→ 近々の開催をご案内\n" +
   "・「使い方」→ アプリの説明\n" +
   "・連携コード → アカウント連携\n\n" +
-  "って送ってみて！";
+  "と送ってみてください！";
 
 // ---- イベントハンドラ --------------------------------------------------
 
@@ -206,9 +237,9 @@ async function handleMessage(ev: LineEvent) {
         {
           type: "text",
           text:
-            "連携できたで！✅\n" +
-            "これからは興味・エリアに合ったイベントを LINE でお届けするな。\n" +
-            "通知はいつでも Cue アプリの設定でオフにできるで。",
+            "連携が完了しました！✅\n" +
+            "これからは興味・エリアに合ったイベントを LINE でお届けします。\n" +
+            "通知はいつでも Cue アプリの設定でオフにできます。",
         },
       ]);
       return;
@@ -217,7 +248,7 @@ async function handleMessage(ev: LineEvent) {
       await replyLineMessage(ev.replyToken, [
         {
           type: "text",
-          text: "コードが無効か期限切れやわ。Cue アプリでもう一度発行してな。",
+          text: "コードが無効か期限切れです。Cue アプリでもう一度発行してください。",
         },
       ]);
       return;
