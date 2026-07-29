@@ -2,8 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { verifyLineSignature, replyLineMessage } from "@/lib/line";
-import { startOfTodayJstIso } from "@/lib/datetime";
-import { eventScheduleLabel } from "@/lib/events";
+import {
+  startOfTodayJstIso,
+  jstParts,
+  jstDateToUtc,
+} from "@/lib/datetime";
+import {
+  eventScheduleLabel,
+  inferCategory,
+  parentOf,
+  categoriesUnderParent,
+  PARENT_LABELS,
+} from "@/lib/events";
 import { SITE } from "@/lib/site";
 
 export const runtime = "nodejs";
@@ -40,6 +50,12 @@ const EVENT_WORDS = [
   "イベント", "いべんと", "近く", "ちかく", "近所", "週末", "おすすめ",
   "オススメ", "やってる", "催し", "フェス", "祭り", "まつり", "予定", "何かある",
   "なにかある",
+  // 時間ワード (日付絞り込みは detectWindow が担当。ここでは意図判定の保険)
+  "今日", "きょう", "本日", "明日", "あした", "あす",
+  // ジャンル・遊び系ワード
+  "花火", "ライブ", "展示", "展覧", "マーケット", "デート", "遊び", "遊べる",
+  "どこ行く", "どこいく", "暇", "ひま", "何する", "なにする", "お出かけ",
+  "おでかけ", "スポット",
 ];
 const HELP_WORDS = [
   "使い方", "つかいかた", "つかい方", "ヘルプ", "help", "アプリ", "何ができる",
@@ -57,6 +73,66 @@ function classify(text: string): Intent {
   if (HELP_WORDS.some((w) => t.includes(w.toLowerCase()))) return "help";
   if (GREETING_WORDS.some((w) => t.includes(w.toLowerCase()))) return "greeting";
   return "unknown";
+}
+
+// ---- 日付ウィンドウ判定 -------------------------------------------------
+
+// 「今日」「明日」「今週末」などの語から、絞り込む JST の期間 [start, end) を返す。
+// 該当しなければ null (= 近々一覧を表示)。
+type EventWindow = { label: string; startIso: string; endIso: string };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function detectWindow(text: string, now: Date = new Date()): EventWindow | null {
+  const p = jstParts(now);
+  const todayStart = jstDateToUtc(p.year, p.month, p.day, 0);
+
+  if (/今日|きょう|本日/.test(text)) {
+    return {
+      label: "今日",
+      startIso: todayStart.toISOString(),
+      endIso: new Date(todayStart.getTime() + DAY_MS).toISOString(),
+    };
+  }
+  if (/明日|あした|あす/.test(text)) {
+    const start = new Date(todayStart.getTime() + DAY_MS);
+    return {
+      label: "明日",
+      startIso: start.toISOString(),
+      endIso: new Date(start.getTime() + DAY_MS).toISOString(),
+    };
+  }
+  if (/今週末|週末|土日|しゅうまつ/.test(text)) {
+    // 直近の土曜 0:00 〜 月曜 0:00。今日が土日ならその週末を対象にする。
+    const dow = p.dow; // 0=日, 6=土
+    const daysUntilSat = dow === 6 ? 0 : dow === 0 ? -1 : 6 - dow;
+    const satStart = new Date(todayStart.getTime() + daysUntilSat * DAY_MS);
+    const monStart = new Date(satStart.getTime() + 2 * DAY_MS);
+    // 過去は含めない (日曜に「週末」と言われたら日曜のみ)。
+    const start = new Date(Math.max(satStart.getTime(), todayStart.getTime()));
+    return {
+      label: "今週末",
+      startIso: start.toISOString(),
+      endIso: monStart.toISOString(),
+    };
+  }
+  return null;
+}
+
+// ---- ジャンル判定 ------------------------------------------------------
+
+// 「祭り」「ライブ」「花火」などの語から絞り込む親ジャンルを判定する。
+// アプリと同じ inferCategory を使い、親カテゴリー単位 (配下サブ全部) で絞る。
+type EventCategoryFilter = { label: string; values: string[] };
+
+function detectCategory(text: string): EventCategoryFilter | null {
+  const inferred = inferCategory(text);
+  if (!inferred) return null;
+  const parent = parentOf(inferred);
+  return {
+    label: PARENT_LABELS[parent],
+    values: categoriesUnderParent(parent) as string[],
+  };
 }
 
 // ---- 連携コード --------------------------------------------------------
@@ -126,18 +202,58 @@ function isUpcoming(e: EventRow): boolean {
   );
 }
 
-async function buildEventReply(admin: SupabaseClient): Promise<string> {
+type EventFilter = {
+  window?: EventWindow | null;
+  category?: EventCategoryFilter | null;
+};
+
+// 期間・ジャンルのラベルを組み立てる (例: 「今週末の祭り」「近々の音楽」)。
+function filterLabel(filter: EventFilter): string {
+  const time = filter.window ? filter.window.label : "近々";
+  const genre = filter.category ? `の${filter.category.label}` : "";
+  return `${time}${genre}`;
+}
+
+async function buildEventReply(
+  admin: SupabaseClient,
+  filter: EventFilter = {}
+): Promise<string> {
+  const { window, category } = filter;
+
   // 多めに取得して JS 側で「誘って行きやすい順」に並べ替える。
-  const { data } = await admin
+  let query = admin
     .from("events")
     .select("id, title, starts_at, ends_at, is_permanent, area, venue_name")
     .eq("approved", true)
-    .gte("effective_end", startOfTodayJstIso())
+    .gte("effective_end", startOfTodayJstIso());
+
+  // 「今日」「明日」「今週末」などが指定されたら、その期間に開催中のものへ絞る。
+  // (期間終了が指定開始以降 かつ 開始が指定終了より前 = 期間が重なる)
+  if (window) {
+    query = query
+      .gte("effective_end", window.startIso)
+      .lt("starts_at", window.endIso);
+  }
+
+  // 「祭り」「ライブ」などジャンル指定があれば、その親ジャンル配下に絞る。
+  if (category) {
+    query = query.in("category", category.values);
+  }
+
+  const { data } = await query
     .order("starts_at", { ascending: true })
     .limit(30);
 
   const events = (data ?? []) as EventRow[];
   if (events.length === 0) {
+    if (window || category) {
+      return (
+        `${filterLabel(filter)}のイベントは見つかりませんでした🙏\n` +
+        "ほかの条件はアプリで探してみてください → " +
+        SITE.url +
+        "/search"
+      );
+    }
     return (
       "いま公開中の直近イベントが見つかりませんでした🙏\n" +
       "アプリで探してみてください → " +
@@ -171,8 +287,13 @@ async function buildEventReply(admin: SupabaseClient): Promise<string> {
     return `・${e.title}\n  🗓️ ${sched.text}${place}\n  ${SITE.url}/events/${e.id}`;
   });
 
+  const header =
+    window || category
+      ? `${filterLabel(filter)}のイベントです！👇\n\n`
+      : "近々行けるイベントです！👇\n\n";
+
   return (
-    "近々行けるイベントです！👇\n\n" +
+    header +
     lines.join("\n\n") +
     "\n\n気になるイベントは、このままトークで友だちに送って誘えます📲\n" +
     "もっと見る → " +
@@ -257,10 +378,13 @@ async function handleMessage(ev: LineEvent) {
   }
 
   // 2) 意図判定して返信。
+  // 「今日」「明日」「今週末」＝期間、「祭り」「ライブ」＝ジャンルで絞り込む。
+  const window = detectWindow(text);
+  const category = detectCategory(text);
   const intent = classify(text);
   let reply: string;
-  if (intent === "event") {
-    reply = await buildEventReply(admin);
+  if (window || category || intent === "event") {
+    reply = await buildEventReply(admin, { window, category });
   } else if (intent === "help") {
     reply = HELP_TEXT;
   } else if (intent === "greeting") {
