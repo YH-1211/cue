@@ -10,11 +10,16 @@ async function isGateAllowed(request: NextRequest): Promise<boolean> {
   if (!password) return true;
 
   const { pathname } = request.nextUrl;
-  // ゲート画面自体・照合API・Cron (CRON_SECRET で別途保護) は素通り
+  // ゲート画面自体・照合API・Cron (CRON_SECRET で別途保護) は素通り。
+  // - /privacy, /terms: LINE 等の外部登録で公開URLが必要なため常時公開
+  // - /api/line: LINE Webhook。Cookie ではなく署名検証で保護するため素通り
   if (
     pathname === "/gate" ||
     pathname === "/api/gate" ||
-    pathname.startsWith("/api/cron")
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname.startsWith("/api/cron") ||
+    pathname.startsWith("/api/line")
   ) {
     return true;
   }

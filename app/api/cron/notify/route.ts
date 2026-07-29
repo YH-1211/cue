@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { sendPushToUser } from "@/lib/web-push";
+import { notifyUser } from "@/lib/notify";
 import { jstParts, jstDateToUtc } from "@/lib/datetime";
 import {
   CATEGORY_LABELS,
@@ -355,7 +355,7 @@ async function sendReminders(
     });
     const place = [ev.area, ev.venue_name].filter(Boolean).join(" / ");
 
-    const ok = await sendPushToUser(admin, row.user_id, {
+    const ok = await notifyUser(admin, row.user_id, {
       title: `${opts.titlePrefix} ${ev.title}`,
       body: place ? `${time} · ${place}` : time,
       url: `/events/${ev.id}`,
@@ -447,7 +447,7 @@ async function sendTicketSale(
           ? "もうすぐチケット発売:"
           : "チケット発売中:";
 
-    const ok = await sendPushToUser(admin, row.user_id, {
+    const ok = await notifyUser(admin, row.user_id, {
       title: `${label} ${ev.title}`,
       body: new Date(ev.ticket_sale_starts_at).toLocaleString("ja-JP", {
         month: "numeric",
@@ -540,7 +540,7 @@ async function sendTicketSaleEnd(
     const body =
       kind === "ticket_end_over" ? `${when} に販売終了しました` : `締切: ${when}`;
 
-    const ok = await sendPushToUser(admin, row.user_id, {
+    const ok = await notifyUser(admin, row.user_id, {
       title: `${label} ${ev.title}`,
       body,
       url: `/events/${ev.id}`,
@@ -665,7 +665,7 @@ async function sendInterestWeekly(
 
     const top = events[0];
     const more = events.length - 1;
-    const ok = await sendPushToUser(admin, u.id, {
+    const ok = await notifyUser(admin, u.id, {
       title: `あなた向けの今週の新着 (${events.length} 件)`,
       body: more > 0
         ? `${CATEGORY_LABELS[top.category as EventCategory]} ${top.title} ほか ${more} 件`
@@ -801,7 +801,7 @@ async function sendInterestUpcoming(
         });
         const place = [ev.area, ev.venue_name].filter(Boolean).join(" / ");
 
-        const ok = await sendPushToUser(admin, user.id, {
+        const ok = await notifyUser(admin, user.id, {
           title: `${titlePrefix} ${ev.title}`,
           body: place ? `${time} · ${place}` : time,
           url: `/events/${ev.id}`,
@@ -899,7 +899,7 @@ async function sendInterestTicket(
         .maybeSingle();
       if (dup.data) continue;
 
-      const ok = await sendPushToUser(admin, u.id, {
+      const ok = await notifyUser(admin, u.id, {
         title: `明日チケット発売 (興味あり): ${ev.title}`,
         body: new Date(ev.ticket_sale_starts_at).toLocaleString("ja-JP", {
           month: "numeric",
@@ -1014,7 +1014,7 @@ async function sendSavedSearchMatches(
     const more = matches.length - 1;
     const params = new URLSearchParams();
     if (s.q) params.set("q", s.q);
-    const ok = await sendPushToUser(admin, s.user_id, {
+    const ok = await notifyUser(admin, s.user_id, {
       title: `保存した検索「${s.label}」に新着 (${matches.length}件)`,
       body:
         more > 0
@@ -1102,7 +1102,7 @@ async function sendNearbyMatch(
 
     const top = fresh[0];
     const more = fresh.length - 1;
-    const ok = await sendPushToUser(admin, u.id, {
+    const ok = await notifyUser(admin, u.id, {
       title: `近くで新着 (${fresh.length}件)`,
       body:
         more > 0

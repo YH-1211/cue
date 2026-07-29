@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { NotificationsClient } from "./notifications-client";
 import { HomeAreaSection } from "./home-area-section";
 import { QuietHoursSection } from "./quiet-hours-section";
+import { LineSection } from "./line-section";
 
 export const metadata = { title: "通知設定" };
 
@@ -18,7 +19,7 @@ export default async function NotificationsPage() {
     supabase
       .from("profiles")
       .select(
-        "notify_interest_weekly, notify_reminder_eve, notify_reminder_morning, notify_ticket, notify_interest_upcoming, notify_interest_ticket, home_area, home_radius_km, notify_nearby_match, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end, notify_interest_min_score"
+        "notify_interest_weekly, notify_reminder_eve, notify_reminder_morning, notify_ticket, notify_interest_upcoming, notify_interest_ticket, home_area, home_radius_km, notify_nearby_match, notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end, notify_interest_min_score, line_user_id, notify_via_line"
       )
       .eq("id", user.id)
       .maybeSingle(),
@@ -54,6 +55,9 @@ export default async function NotificationsPage() {
   };
   const hasSubscription = (subRes.data?.length ?? 0) > 0;
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
+  const lineLinked = Boolean(profile?.line_user_id);
+  const lineNotify = profile?.notify_via_line ?? true;
+  const lineAddFriendUrl = process.env.NEXT_PUBLIC_LINE_ADD_FRIEND_URL ?? null;
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
@@ -82,6 +86,12 @@ export default async function NotificationsPage() {
             通知機能は現在準備中です (VAPID キー未設定)。
           </div>
         )}
+
+        <LineSection
+          linked={lineLinked}
+          notifyViaLine={lineNotify}
+          addFriendUrl={lineAddFriendUrl}
+        />
 
         <HomeAreaSection initial={homeAreaInitial} />
 
