@@ -121,6 +121,7 @@ export async function GET(req: NextRequest) {
     ticket_end_soon: 0,
     ticket_end_over: 0,
     interest_weekly: 0,
+    interest_digest: 0,
     line_weekly: 0,
     interest_upcoming_7d: 0,
     interest_upcoming_1d: 0,
@@ -216,6 +217,14 @@ export async function GET(req: NextRequest) {
   // ============================================
   if (jst.dow === 1 && jst.hour === 9) {
     result.interest_weekly = await sendInterestWeekly(admin);
+  }
+
+  // ============================================
+  // 4a) あなた向け週次ダイジェスト (JST 土曜 朝 9 時台に1回)
+  //     新着に限らず、興味タグに合う今後のイベントをまとめて通知。
+  // ============================================
+  if (jst.dow === 6 && jst.hour === 9) {
+    result.interest_digest = await sendInterestDigest(admin);
   }
 
   // ============================================
@@ -688,6 +697,87 @@ async function sendInterestWeekly(
       await admin
         .from("notification_log")
         .insert({ user_id: u.id, kind: "interest_weekly", event_id: null });
+      sent += 1;
+    }
+  }
+  return sent;
+}
+
+// =====================================================
+// あなた向け週次ダイジェスト (週1)
+//   sendInterestWeekly と違い「新着」に限らず、登録日を問わず
+//   興味タグに合う今後(次14日)のイベントをまとめて通知する。
+//   → 新規追加が無い静かな週でも毎週必ず届くので体感の抜けを埋める。
+// =====================================================
+async function sendInterestDigest(
+  admin: ReturnType<typeof createAdminClient>
+): Promise<number> {
+  const now = new Date();
+  const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const { data: users } = await admin
+    .from("profiles")
+    .select(
+      `id, interest_categories,
+       notify_quiet_hours_enabled, notify_quiet_hours_start, notify_quiet_hours_end`
+    )
+    .eq("notify_interest_upcoming", true)
+    .not("interest_categories", "is", null);
+
+  const list = (users ?? []) as InterestUser[];
+  if (list.length === 0) return 0;
+
+  let sent = 0;
+  for (const u of list) {
+    if (isQuietNow(u, new Date())) continue;
+
+    const set = expandInterestSet(u.interest_categories);
+    if (set.size === 0) continue;
+
+    // 今後14日・興味タグに合う開催予定を取得 (登録日は問わない)
+    const { data: rawEvents } = await admin
+      .from("events")
+      .select("id, title, category")
+      .eq("approved", true)
+      .in("category", Array.from(set))
+      .gte("starts_at", now.toISOString())
+      .lte("starts_at", horizon.toISOString())
+      .order("starts_at", { ascending: true })
+      .limit(5);
+
+    const events = (rawEvents ?? []) as Array<{
+      id: string;
+      title: string;
+      category: EventCategory;
+    }>;
+    if (events.length === 0) continue;
+
+    // 同じ週は1回まで
+    const dup = await admin
+      .from("notification_log")
+      .select("id")
+      .eq("user_id", u.id)
+      .eq("kind", "interest_digest")
+      .gte("sent_at", weekAgo.toISOString())
+      .maybeSingle();
+    if (dup.data) continue;
+
+    const top = events[0];
+    const more = events.length - 1;
+    const ok = await notifyUser(admin, u.id, {
+      title: `あなた向けの今後のイベント (${events.length} 件)`,
+      body:
+        more > 0
+          ? `${CATEGORY_LABELS[top.category]} ${top.title} ほか ${more} 件`
+          : `${CATEGORY_LABELS[top.category]} ${top.title}`,
+      url: "/events",
+      tag: "interest_digest",
+    });
+    if (ok > 0) {
+      await admin
+        .from("notification_log")
+        .insert({ user_id: u.id, kind: "interest_digest", event_id: null });
       sent += 1;
     }
   }
