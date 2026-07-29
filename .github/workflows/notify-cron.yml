@@ -1,0 +1,33 @@
+name: notify-cron
+
+# Vercel Hobby プランの内蔵 cron は頻度に上限があるため、
+# 通知処理 (/api/cron/notify) を GitHub Actions から毎時叩いて
+# チケット発売通知などを本来の窓 (±30分) の精度で動かす。
+# エンドポイントは CRON_SECRET で保護されており、内部で時間ゲート +
+# notification_log による重複防止が効くので、多めに叩いても安全。
+
+on:
+  schedule:
+    - cron: "0 * * * *" # 毎時 0 分 (UTC)
+  workflow_dispatch: {} # 手動実行も可
+
+# 前の実行が長引いても重ならないようにする
+concurrency:
+  group: notify-cron
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger notify cron
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS -o /tmp/resp.txt -w "%{http_code}" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://cue-taupe-eight.vercel.app/api/cron/notify")
+          echo "HTTP ${code}"
+          cat /tmp/resp.txt
+          # 2xx 以外は失敗扱いにする
+          test "${code}" -ge 200 && test "${code}" -lt 300
