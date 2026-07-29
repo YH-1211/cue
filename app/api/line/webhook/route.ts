@@ -12,7 +12,9 @@ import {
   inferCategory,
   parentOf,
   categoriesUnderParent,
+  isParentCategory,
   PARENT_LABELS,
+  type EventCategory,
 } from "@/lib/events";
 import { SITE } from "@/lib/site";
 
@@ -197,7 +199,44 @@ type EventRow = {
   is_permanent: boolean | null;
   area: string | null;
   venue_name: string | null;
+  category: string | null;
 };
+
+// 連携済みユーザーの興味タグ・活動エリア。返信の並び替えに使う。
+type Personalization = { interests: Set<string>; area: string | null };
+
+// 親カテゴリは配下サブに展開した一致判定用セットにする (アプリと同じ扱い)。
+function expandInterestSet(cats: string[] | null | undefined): Set<string> {
+  const set = new Set<string>();
+  for (const c of cats ?? []) {
+    const cat = c as EventCategory;
+    if (isParentCategory(cat)) {
+      for (const sub of categoriesUnderParent(cat)) set.add(sub);
+    } else {
+      set.add(c);
+    }
+  }
+  return set;
+}
+
+// LINE userId から連携済みプロフィールの興味・エリアを引く。未連携なら null。
+async function getPersonalization(
+  admin: SupabaseClient,
+  lineUserId: string
+): Promise<Personalization | null> {
+  const { data } = await admin
+    .from("profiles")
+    .select("interest_categories, home_area")
+    .eq("line_user_id", lineUserId)
+    .maybeSingle();
+  if (!data) return null;
+  const interests = expandInterestSet(
+    data.interest_categories as string[] | null
+  );
+  const area = (data.home_area as string | null) ?? null;
+  if (interests.size === 0 && !area) return null;
+  return { interests, area };
+}
 
 // これから開催のもの (常設・開催中を除く未来のイベント)。
 function isUpcoming(e: EventRow): boolean {
@@ -222,14 +261,17 @@ function filterLabel(filter: EventFilter): string {
 
 async function buildEventReply(
   admin: SupabaseClient,
-  filter: EventFilter = {}
+  filter: EventFilter = {},
+  personal: Personalization | null = null
 ): Promise<string> {
   const { window, category } = filter;
 
   // 多めに取得して JS 側で「誘って行きやすい順」に並べ替える。
   let query = admin
     .from("events")
-    .select("id, title, starts_at, ends_at, is_permanent, area, venue_name")
+    .select(
+      "id, title, starts_at, ends_at, is_permanent, area, venue_name, category"
+    )
     .eq("approved", true)
     .gte("effective_end", startOfTodayJstIso());
 
@@ -268,8 +310,27 @@ async function buildEventReply(
     );
   }
 
+  // 連携ユーザーなら、興味タグ一致(+2)・活動エリア一致(+1)でスコアリング。
+  const matchScore = (e: EventRow): number => {
+    if (!personal) return 0;
+    let s = 0;
+    if (e.category && personal.interests.has(e.category)) s += 2;
+    if (personal.area && e.area && e.area === personal.area) s += 1;
+    return s;
+  };
+
   // これから開催 (近い順) → 開催中 (終わりが近い順) → 常設 の順で上位5件。
   const upcoming = events.filter(isUpcoming); // すでに starts_at 昇順
+  if (personal) {
+    // 興味・エリアに合うものを優先。同スコアなら開催が近い順を保つ。
+    upcoming.sort((a, b) => {
+      const d = matchScore(b) - matchScore(a);
+      if (d !== 0) return d;
+      const aStart = a.starts_at ? new Date(a.starts_at).getTime() : Infinity;
+      const bStart = b.starts_at ? new Date(b.starts_at).getTime() : Infinity;
+      return aStart - bStart;
+    });
+  }
   const ongoing = events
     .filter((e) => !isUpcoming(e))
     .sort((a, b) => {
@@ -281,6 +342,7 @@ async function buildEventReply(
       return aEnd - bEnd; // 終わりが近い順
     });
   const picked = [...upcoming, ...ongoing].slice(0, 5);
+  const personalized = picked.some((e) => matchScore(e) > 0);
 
   const lines = picked.map((e) => {
     const sched = eventScheduleLabel(
@@ -296,7 +358,9 @@ async function buildEventReply(
   const header =
     window || category
       ? `${filterLabel(filter)}のイベントです！👇\n\n`
-      : "近々行けるイベントです！👇\n\n";
+      : personalized
+        ? "あなたの興味に合わせて選んだ、近々のイベントです！👇\n\n"
+        : "近々行けるイベントです！👇\n\n";
 
   return (
     header +
@@ -411,7 +475,9 @@ async function handleMessage(ev: LineEvent) {
   const intent = classify(text);
   let reply: string;
   if (window || category || intent === "event") {
-    reply = await buildEventReply(admin, { window, category });
+    // 連携済みなら興味・エリアで並べ替え。未連携は null で従来通り。
+    const personal = await getPersonalization(admin, lineUserId);
+    reply = await buildEventReply(admin, { window, category }, personal);
   } else if (intent === "keyword") {
     reply = KEYWORD_TEXT;
   } else if (intent === "help") {
