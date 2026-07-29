@@ -189,6 +189,7 @@ export default async function MePage() {
   const displayName =
     profile?.display_name ?? user.email?.split("@")[0] ?? "ゲスト";
   const initial = displayName.charAt(0).toUpperCase();
+  const lineAddFriendUrl = process.env.NEXT_PUBLIC_LINE_ADD_FRIEND_URL;
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
@@ -578,6 +579,23 @@ export default async function MePage() {
       <section>
         <h2 className="mb-4 text-lg font-semibold">設定・その他</h2>
         <nav className="flex flex-col rounded-lg border border-border">
+          {lineAddFriendUrl && (
+            <>
+              <a
+                href={lineAddFriendUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
+              >
+                <span className="flex items-center gap-2 font-medium">
+                  <span aria-hidden>💬</span>
+                  Cue 公式 LINE を友だち追加
+                </span>
+                <span className="text-[#06C755]">↗</span>
+              </a>
+              <Separator />
+            </>
+          )}
           <Link
             href="/terms"
             className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"

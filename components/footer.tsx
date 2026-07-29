@@ -3,6 +3,7 @@ import { SITE } from "@/lib/site";
 
 export function Footer() {
   const year = new Date().getFullYear();
+  const lineUrl = process.env.NEXT_PUBLIC_LINE_ADD_FRIEND_URL;
   return (
     <footer className="border-t border-border mt-auto">
       <div className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6">
@@ -23,6 +24,16 @@ export function Footer() {
             <Link href="/contact" className="hover:text-foreground">
               お問い合わせ
             </Link>
+            {lineUrl && (
+              <a
+                href={lineUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-[#06C755] hover:opacity-80"
+              >
+                LINE公式
+              </a>
+            )}
           </nav>
         </div>
         <p className="mt-6 text-xs text-muted-foreground">

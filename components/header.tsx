@@ -9,6 +9,7 @@ export async function Header() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const lineUrl = process.env.NEXT_PUBLIC_LINE_ADD_FRIEND_URL;
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur">
@@ -32,6 +33,17 @@ export async function Header() {
           >
             ニュース
           </Link>
+
+          {lineUrl && (
+            <a
+              href={lineUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-[#06C755] transition-opacity hover:opacity-80"
+            >
+              LINE公式
+            </a>
+          )}
 
           <AppearanceMenu />
 
