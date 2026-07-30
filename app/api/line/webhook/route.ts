@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { verifyLineSignature, replyLineMessage } from "@/lib/line";
+import { verifyLineSignature, replyLineMessage, type LineMessage } from "@/lib/line";
 import {
   startOfTodayJstIso,
   jstParts,
@@ -12,6 +12,7 @@ import {
   inferCategory,
   parentOf,
   categoriesUnderParent,
+  categoryCoverPath,
   isParentCategory,
   PARENT_LABELS,
   type EventCategory,
@@ -200,6 +201,7 @@ type EventRow = {
   area: string | null;
   venue_name: string | null;
   category: string | null;
+  cover_image_url: string | null;
 };
 
 // 連携済みユーザーの興味タグ・活動エリア。返信の並び替えに使う。
@@ -259,18 +261,93 @@ function filterLabel(filter: EventFilter): string {
   return `${time}${genre}`;
 }
 
-async function buildEventReply(
+// イベント1件ぶんの Flex Bubble (カード) を組み立てる。
+function buildEventBubble(e: EventRow): Record<string, unknown> {
+  const sched = eventScheduleLabel(
+    e.starts_at,
+    e.ends_at,
+    e.is_permanent ?? false
+  );
+  const where = [e.area, e.venue_name].filter(Boolean).join(" / ");
+  const category = (e.category as EventCategory | null) ?? "art";
+  const imageUrl = e.cover_image_url ?? `${SITE.url}${categoryCoverPath(category)}`;
+
+  const bodyContents: Record<string, unknown>[] = [
+    {
+      type: "text",
+      text: e.title,
+      weight: "bold",
+      size: "md",
+      wrap: true,
+      maxLines: 2,
+    },
+    {
+      type: "text",
+      text: `🗓️ ${sched.text}`,
+      size: "sm",
+      color: "#888888",
+      wrap: true,
+      margin: "sm",
+    },
+  ];
+  if (where) {
+    bodyContents.push({
+      type: "text",
+      text: `📍 ${where}`,
+      size: "sm",
+      color: "#888888",
+      wrap: true,
+    });
+  }
+
+  return {
+    type: "bubble",
+    size: "kilo",
+    hero: {
+      type: "image",
+      url: imageUrl,
+      size: "full",
+      aspectRatio: "20:13",
+      aspectMode: "cover",
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "xs",
+      contents: bodyContents,
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          height: "sm",
+          color: "#FF7A00",
+          action: {
+            type: "uri",
+            label: "詳しく見る",
+            uri: `${SITE.url}/events/${e.id}`,
+          },
+        },
+      ],
+    },
+  };
+}
+
+async function buildEventMessages(
   admin: SupabaseClient,
   filter: EventFilter = {},
   personal: Personalization | null = null
-): Promise<string> {
+): Promise<LineMessage[]> {
   const { window, category } = filter;
 
   // 多めに取得して JS 側で「誘って行きやすい順」に並べ替える。
   let query = admin
     .from("events")
     .select(
-      "id, title, starts_at, ends_at, is_permanent, area, venue_name, category"
+      "id, title, starts_at, ends_at, is_permanent, area, venue_name, category, cover_image_url"
     )
     .eq("approved", true)
     .gte("effective_end", startOfTodayJstIso());
@@ -294,20 +371,16 @@ async function buildEventReply(
 
   const events = (data ?? []) as EventRow[];
   if (events.length === 0) {
-    if (window || category) {
-      return (
-        `${filterLabel(filter)}のイベントは見つかりませんでした🙏\n` +
+    const text = window || category
+      ? `${filterLabel(filter)}のイベントは見つかりませんでした🙏\n` +
         "ほかの条件はアプリで探してみてください → " +
         SITE.url +
         "/search"
-      );
-    }
-    return (
-      "いま公開中の直近イベントが見つかりませんでした🙏\n" +
-      "アプリで探してみてください → " +
-      SITE.url +
-      "/search"
-    );
+      : "いま公開中の直近イベントが見つかりませんでした🙏\n" +
+        "アプリで探してみてください → " +
+        SITE.url +
+        "/search";
+    return [{ type: "text", text }];
   }
 
   // 連携ユーザーなら、興味タグ一致(+2)・活動エリア一致(+1)でスコアリング。
@@ -344,32 +417,30 @@ async function buildEventReply(
   const picked = [...upcoming, ...ongoing].slice(0, 5);
   const personalized = picked.some((e) => matchScore(e) > 0);
 
-  const lines = picked.map((e) => {
-    const sched = eventScheduleLabel(
-      e.starts_at,
-      e.ends_at,
-      e.is_permanent ?? false
-    );
-    const where = [e.area, e.venue_name].filter(Boolean).join(" / ");
-    const place = where ? `\n  📍 ${where}` : "";
-    return `・${e.title}\n  🗓️ ${sched.text}${place}\n  ${SITE.url}/events/${e.id}`;
-  });
+  const headerLabel =
+    window || category
+      ? `${filterLabel(filter)}のイベントです！👇`
+      : personalized
+        ? "あなたの興味に合わせて選んだ、近々のイベントです！👇"
+        : "近々行けるイベントです！👇";
 
   const header =
-    window || category
-      ? `${filterLabel(filter)}のイベントです！👇\n\n`
-      : personalized
-        ? "あなたの興味に合わせて選んだ、近々のイベントです！👇\n\n"
-        : "近々行けるイベントです！👇\n\n";
+    headerLabel +
+    "\nタップで詳細が見られます。気になるものはこのままトークで友だちに送って誘えます📲";
 
-  return (
-    header +
-    lines.join("\n\n") +
-    "\n\n気になるイベントは、このままトークで友だちに送って誘えます📲\n" +
-    "もっと見る → " +
-    SITE.url +
-    "/search"
-  );
+  const carousel = {
+    type: "carousel",
+    contents: picked.map(buildEventBubble),
+  };
+
+  return [
+    { type: "text", text: header },
+    { type: "flex", altText: headerLabel, contents: carousel },
+    {
+      type: "text",
+      text: `もっと見る → ${SITE.url}/search`,
+    },
+  ];
 }
 
 const HELP_TEXT =
@@ -473,22 +544,22 @@ async function handleMessage(ev: LineEvent) {
   const window = detectWindow(text);
   const category = detectCategory(text);
   const intent = classify(text);
-  let reply: string;
+  let messages: LineMessage[];
   if (window || category || intent === "event") {
     // 連携済みなら興味・エリアで並べ替え。未連携は null で従来通り。
     const personal = await getPersonalization(admin, lineUserId);
-    reply = await buildEventReply(admin, { window, category }, personal);
+    messages = await buildEventMessages(admin, { window, category }, personal);
   } else if (intent === "keyword") {
-    reply = KEYWORD_TEXT;
+    messages = [{ type: "text", text: KEYWORD_TEXT }];
   } else if (intent === "help") {
-    reply = HELP_TEXT;
+    messages = [{ type: "text", text: HELP_TEXT }];
   } else if (intent === "greeting") {
-    reply = GREETING_TEXT;
+    messages = [{ type: "text", text: GREETING_TEXT }];
   } else {
-    reply = FALLBACK_TEXT;
+    messages = [{ type: "text", text: FALLBACK_TEXT }];
   }
 
-  await replyLineMessage(ev.replyToken, [{ type: "text", text: reply }]);
+  await replyLineMessage(ev.replyToken, messages);
 }
 
 export async function POST(req: NextRequest) {

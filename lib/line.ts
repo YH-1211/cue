@@ -35,7 +35,14 @@ export function verifyLineSignature(rawBody: string, signature: string | null): 
 }
 
 export type LineTextMessage = { type: "text"; text: string };
-export type LineMessage = LineTextMessage;
+// Flex Message の中身 (bubble/carousel) は複雑なので型は緩めに持つ。
+// altText はプッシュ通知・トーク一覧のプレビューに使われるので必須。
+export type LineFlexMessage = {
+  type: "flex";
+  altText: string;
+  contents: Record<string, unknown>;
+};
+export type LineMessage = LineTextMessage | LineFlexMessage;
 
 /** replyToken を使って応答する (無料・友だちが発言した直後のみ有効)。 */
 export async function replyLineMessage(

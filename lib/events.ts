@@ -186,6 +186,50 @@ export function categoryBadgeClass(category: EventCategory): string {
   return PARENT_BADGE_CLASSES[parentOf(category)];
 }
 
+// 親カテゴリーごとのプレースホルダー画像 (public/categories/*.jpg)。
+// cover_image_url が無いイベントの背景に使う。
+const PARENT_COVER_IMAGES: Record<ParentCategory, string> = {
+  art: "/categories/art.jpg",
+  music: "/categories/music.jpg",
+  theater: "/categories/theater.jpg",
+  festival: "/categories/festival.jpg",
+  food: "/categories/food.jpg",
+  seasonal: "/categories/seasonal.jpg",
+  film: "/categories/film.jpg",
+  learning: "/categories/learning.jpg",
+  sports: "/categories/sports.jpg",
+};
+
+// サブカテゴリー専用画像。より内容に合った写真がある分だけ用意し、
+// 無いサブカテゴリーは親カテゴリーの画像にフォールバックする。
+const SUB_COVER_IMAGES: Partial<Record<EventCategory, string>> = {
+  sports_baseball: "/categories/sports_baseball.jpg",
+  sports_soccer: "/categories/sports_soccer.jpg",
+  sports_basketball: "/categories/sports_basketball.jpg",
+  sports_marathon: "/categories/sports_marathon.jpg",
+  sports_sumo: "/categories/sports_sumo.jpg",
+  festival_hanabi: "/categories/festival_hanabi.jpg",
+  music_classic: "/categories/music_classic.jpg",
+  music_jazz: "/categories/music_jazz.jpg",
+  music_rock: "/categories/music_rock.jpg",
+  art_contemporary: "/categories/art_contemporary.jpg",
+  art_photo: "/categories/art_photo.jpg",
+  art_craft: "/categories/art_craft.jpg",
+  festival_shrine: "/categories/festival_shrine.jpg",
+  festival_ennichi: "/categories/festival_ennichi.jpg",
+  festival_natsu: "/categories/festival_natsu.jpg",
+  seasonal_koyo: "/categories/seasonal_koyo.jpg",
+  seasonal_xmas: "/categories/seasonal_xmas.jpg",
+  seasonal_illumi: "/categories/seasonal_illumi.jpg",
+  // 初詣は神社の画像 (鳥居) を流用
+  seasonal_hatsumode: "/categories/festival_shrine.jpg",
+};
+
+// カテゴリーに応じたプレースホルダー画像の相対パスを返す (cover_image_url が無い時用)。
+export function categoryCoverPath(category: EventCategory): string {
+  return SUB_COVER_IMAGES[category] ?? PARENT_COVER_IMAGES[parentOf(category)];
+}
+
 // タイトル・説明テキストからカテゴリーを推定する (キーワードベース)。
 // 上から順に評価し、最初にヒットしたカテゴリーを返す (具体的な祭り種別を先に置く)。
 // 自動入力の初期値用。確信度は高くないので、フォーム側で人が確認・修正する前提。
