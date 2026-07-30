@@ -102,6 +102,38 @@ export function distanceKm(
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+// 駅名・地名 → 区 (events.area は区単位の粒度しか持たないため、
+// 「恵比寿」「六本木」のような有名な地名で言及されても該当区にまとめて絞り込む近似)。
+// LINE bot の地名検索 (detectArea) で使用。
+export const NEIGHBORHOOD_TO_AREA = {
+  恵比寿: "渋谷",
+  代官山: "渋谷",
+  原宿: "渋谷",
+  表参道: "渋谷",
+  六本木: "港",
+  麻布: "港",
+  汐留: "港",
+  台場: "港",
+  お台場: "港",
+  秋葉原: "千代田",
+  丸の内: "千代田",
+  大手町: "千代田",
+  東京駅: "千代田",
+  東京: "千代田",
+  銀座: "中央",
+  日本橋: "中央",
+  築地: "中央",
+  上野: "台東",
+  浅草: "台東",
+  池袋: "豊島",
+  吉祥寺: "武蔵野",
+  下北沢: "世田谷",
+  二子玉川: "世田谷",
+  中目黒: "目黒",
+  横浜駅: "横浜",
+  みなとみらい: "横浜",
+} as const satisfies Record<string, AreaName>;
+
 // エリア名 → 距離 (km) のマップを返す
 export function nearbyAreas(
   origin: { lat: number; lng: number },

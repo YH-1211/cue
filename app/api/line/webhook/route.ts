@@ -18,6 +18,7 @@ import {
   type EventCategory,
 } from "@/lib/events";
 import { SITE } from "@/lib/site";
+import { AREA_COORDS, NEIGHBORHOOD_TO_AREA, type AreaName } from "@/lib/tokyo-areas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -144,6 +145,31 @@ function detectCategory(text: string): EventCategoryFilter | null {
   };
 }
 
+// ---- 地名判定 ----------------------------------------------------------
+
+// 「恵比寿」「新宿」「東京」などの語から絞り込む区 (events.area) を判定する。
+// events.area は区単位の粒度しかないため、地名は該当区へ丸める近似。
+// 「恵比寿」のような有名地名を先に見てから、区名そのもの (新宿・渋谷 等) を見る。
+// 1文字の区名 (港・北・柏) は他の単語に紛れやすいので除外する。
+type EventAreaFilter = { label: string; value: AreaName };
+
+function detectArea(text: string): EventAreaFilter | null {
+  const neighborhoods = Object.entries(NEIGHBORHOOD_TO_AREA).sort(
+    (a, b) => b[0].length - a[0].length
+  );
+  for (const [name, area] of neighborhoods) {
+    if (text.includes(name)) return { label: name, value: area as AreaName };
+  }
+
+  const wards = (Object.keys(AREA_COORDS) as AreaName[])
+    .filter((w) => w.length >= 2)
+    .sort((a, b) => b.length - a.length);
+  for (const ward of wards) {
+    if (text.includes(ward)) return { label: ward, value: ward };
+  }
+  return null;
+}
+
 // ---- 連携コード --------------------------------------------------------
 
 // メッセージから 6 桁の連携コードを取り出す (コード用文字のみ・厳密)。
@@ -252,13 +278,17 @@ function isUpcoming(e: EventRow): boolean {
 type EventFilter = {
   window?: EventWindow | null;
   category?: EventCategoryFilter | null;
+  area?: EventAreaFilter | null;
 };
 
-// 期間・ジャンルのラベルを組み立てる (例: 「今週末の祭り」「近々の音楽」)。
+// 期間・地名・ジャンルのラベルを組み立てる (例: 「今週末の渋谷の祭り」「近々の音楽」)。
 function filterLabel(filter: EventFilter): string {
-  const time = filter.window ? filter.window.label : "近々";
-  const genre = filter.category ? `の${filter.category.label}` : "";
-  return `${time}${genre}`;
+  const parts = [
+    filter.window?.label,
+    filter.area?.label,
+    filter.category?.label,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join("の") : "近々";
 }
 
 // イベント1件ぶんの Flex Bubble (カード) を組み立てる。
@@ -341,7 +371,7 @@ async function buildEventMessages(
   filter: EventFilter = {},
   personal: Personalization | null = null
 ): Promise<LineMessage[]> {
-  const { window, category } = filter;
+  const { window, category, area } = filter;
 
   // 多めに取得して JS 側で「誘って行きやすい順」に並べ替える。
   let query = admin
@@ -365,13 +395,18 @@ async function buildEventMessages(
     query = query.in("category", category.values);
   }
 
+  // 「恵比寿」「新宿」などの地名指定があれば、対応する区へ絞る。
+  if (area) {
+    query = query.eq("area", area.value);
+  }
+
   const { data } = await query
     .order("starts_at", { ascending: true })
     .limit(30);
 
   const events = (data ?? []) as EventRow[];
   if (events.length === 0) {
-    const text = window || category
+    const text = window || category || area
       ? `${filterLabel(filter)}のイベントは見つかりませんでした🙏\n` +
         "ほかの条件はアプリで探してみてください → " +
         SITE.url +
@@ -418,7 +453,7 @@ async function buildEventMessages(
   const personalized = picked.some((e) => matchScore(e) > 0);
 
   const headerLabel =
-    window || category
+    window || category || area
       ? `${filterLabel(filter)}のイベントです！👇`
       : personalized
         ? "あなたの興味に合わせて選んだ、近々のイベントです！👇"
@@ -468,8 +503,10 @@ const KEYWORD_TEXT =
   "「祭り」「花火」「ライブ」「音楽」「アート」\n" +
   "「美術館」「演劇」「グルメ」「マルシェ」\n" +
   "「映画」「相撲」「野球」など\n\n" +
+  "▼ 地名でしぼる\n" +
+  "「新宿」「渋谷」「恵比寿」「六本木」など\n\n" +
   "▼ 組み合わせもOK\n" +
-  "「今週末の花火」「明日のライブ」\n\n" +
+  "「今週末の花火」「渋谷のグルメ」\n\n" +
   "▼ その他\n" +
   "「使い方」→ アプリの説明";
 
@@ -540,15 +577,17 @@ async function handleMessage(ev: LineEvent) {
   }
 
   // 2) 意図判定して返信。
-  // 「今日」「明日」「今週末」＝期間、「祭り」「ライブ」＝ジャンルで絞り込む。
+  // 「今日」「明日」「今週末」＝期間、「祭り」「ライブ」＝ジャンル、
+  // 「恵比寿」「新宿」＝地名 で絞り込む。
   const window = detectWindow(text);
   const category = detectCategory(text);
+  const area = detectArea(text);
   const intent = classify(text);
   let messages: LineMessage[];
-  if (window || category || intent === "event") {
+  if (window || category || area || intent === "event") {
     // 連携済みなら興味・エリアで並べ替え。未連携は null で従来通り。
     const personal = await getPersonalization(admin, lineUserId);
-    messages = await buildEventMessages(admin, { window, category }, personal);
+    messages = await buildEventMessages(admin, { window, category, area }, personal);
   } else if (intent === "keyword") {
     messages = [{ type: "text", text: KEYWORD_TEXT }];
   } else if (intent === "help") {
