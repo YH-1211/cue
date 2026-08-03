@@ -233,7 +233,7 @@ export function categoryCoverPath(category: EventCategory): string {
 // タイトル・説明テキストからカテゴリーを推定する (キーワードベース)。
 // 上から順に評価し、最初にヒットしたカテゴリーを返す (具体的な祭り種別を先に置く)。
 // 自動入力の初期値用。確信度は高くないので、フォーム側で人が確認・修正する前提。
-const CATEGORY_KEYWORDS: ReadonlyArray<readonly [EventCategory, readonly string[]]> = [
+export const CATEGORY_KEYWORDS: ReadonlyArray<readonly [EventCategory, readonly string[]]> = [
   ["festival_hanabi", ["花火"]],
   ["festival_natsu", ["盆踊", "納涼", "夏祭", "阿波踊", "阿波おど", "サンバ", "よさこい", "七夕"]],
   ["festival_ennichi", ["縁日", "ほおずき市", "朝顔市", "べったら市", "酉の市", "屋台村"]],

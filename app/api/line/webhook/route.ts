@@ -15,10 +15,12 @@ import {
   categoryCoverPath,
   isParentCategory,
   PARENT_LABELS,
+  CATEGORY_KEYWORDS,
   type EventCategory,
 } from "@/lib/events";
 import { SITE } from "@/lib/site";
 import { AREA_COORDS, NEIGHBORHOOD_TO_AREA, type AreaName } from "@/lib/tokyo-areas";
+import { learnCategoryWeights } from "@/lib/personalization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -145,6 +147,40 @@ function detectCategory(text: string): EventCategoryFilter | null {
   };
 }
 
+// ---- ジャンル除外判定 (否定) --------------------------------------------
+
+// 「花火以外」「祭りじゃなくて」のような、ジャンルキーワード直後に否定語が
+// 続くパターンを検出する。ヒットしたキーワード+否定語の部分は正の判定に
+// 混ざらないよう text から取り除いてから detectCategory を呼ぶこと。
+const NEGATION_SUFFIX =
+  "(?:以外|じゃなくて|じゃない|ではなく|を除いて|を除く|抜きで|抜き)";
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function detectExcludedCategory(
+  text: string
+): { filter: EventCategoryFilter; matched: string } | null {
+  for (const [category, keywords] of CATEGORY_KEYWORDS) {
+    for (const kw of keywords) {
+      const re = new RegExp(`${escapeRegExp(kw)}(?:の)?${NEGATION_SUFFIX}`);
+      const m = text.match(re);
+      if (m) {
+        const parent = parentOf(category);
+        return {
+          filter: {
+            label: PARENT_LABELS[parent],
+            values: categoriesUnderParent(parent) as string[],
+          },
+          matched: m[0],
+        };
+      }
+    }
+  }
+  return null;
+}
+
 // ---- 地名判定 ----------------------------------------------------------
 
 // 「恵比寿」「新宿」「東京」などの語から絞り込む区 (events.area) を判定する。
@@ -230,8 +266,12 @@ type EventRow = {
   cover_image_url: string | null;
 };
 
-// 連携済みユーザーの興味タグ・活動エリア。返信の並び替えに使う。
-type Personalization = { interests: Set<string>; area: string | null };
+// 連携済みユーザーの興味タグ・活動エリア・保存履歴からの学習重み。返信の並び替えに使う。
+type Personalization = {
+  interests: Set<string>;
+  area: string | null;
+  catWeights: Partial<Record<EventCategory, number>>;
+};
 
 // 親カテゴリは配下サブに展開した一致判定用セットにする (アプリと同じ扱い)。
 function expandInterestSet(cats: string[] | null | undefined): Set<string> {
@@ -247,14 +287,14 @@ function expandInterestSet(cats: string[] | null | undefined): Set<string> {
   return set;
 }
 
-// LINE userId から連携済みプロフィールの興味・エリアを引く。未連携なら null。
+// LINE userId から連携済みプロフィールの興味・エリア・保存履歴の学習重みを引く。未連携なら null。
 async function getPersonalization(
   admin: SupabaseClient,
   lineUserId: string
 ): Promise<Personalization | null> {
   const { data } = await admin
     .from("profiles")
-    .select("interest_categories, home_area")
+    .select("id, interest_categories, home_area")
     .eq("line_user_id", lineUserId)
     .maybeSingle();
   if (!data) return null;
@@ -262,8 +302,11 @@ async function getPersonalization(
     data.interest_categories as string[] | null
   );
   const area = (data.home_area as string | null) ?? null;
-  if (interests.size === 0 && !area) return null;
-  return { interests, area };
+  const catWeights = await learnCategoryWeights(admin, data.id as string);
+  if (interests.size === 0 && !area && Object.keys(catWeights).length === 0) {
+    return null;
+  }
+  return { interests, area, catWeights };
 }
 
 // これから開催のもの (常設・開催中を除く未来のイベント)。
@@ -279,6 +322,7 @@ type EventFilter = {
   window?: EventWindow | null;
   category?: EventCategoryFilter | null;
   area?: EventAreaFilter | null;
+  excludeCategory?: EventCategoryFilter | null;
 };
 
 // 期間・地名・ジャンルのラベルを組み立てる (例: 「今週末の渋谷の祭り」「近々の音楽」)。
@@ -288,7 +332,10 @@ function filterLabel(filter: EventFilter): string {
     filter.area?.label,
     filter.category?.label,
   ].filter(Boolean);
-  return parts.length > 0 ? parts.join("の") : "近々";
+  const base = parts.length > 0 ? parts.join("の") : "近々";
+  return filter.excludeCategory
+    ? `${base}(${filter.excludeCategory.label}を除く)`
+    : base;
 }
 
 // イベント1件ぶんの Flex Bubble (カード) を組み立てる。
@@ -371,7 +418,7 @@ async function buildEventMessages(
   filter: EventFilter = {},
   personal: Personalization | null = null
 ): Promise<LineMessage[]> {
-  const { window, category, area } = filter;
+  const { window, category, area, excludeCategory } = filter;
 
   // 多めに取得して JS 側で「誘って行きやすい順」に並べ替える。
   let query = admin
@@ -404,9 +451,12 @@ async function buildEventMessages(
     .order("starts_at", { ascending: true })
     .limit(30);
 
-  const events = (data ?? []) as EventRow[];
+  // 「花火以外」「祭りじゃなくて」などの除外指定があれば、そのジャンル配下を取り除く。
+  const events = ((data ?? []) as EventRow[]).filter(
+    (e) => !excludeCategory || !e.category || !excludeCategory.values.includes(e.category)
+  );
   if (events.length === 0) {
-    const text = window || category || area
+    const text = window || category || area || excludeCategory
       ? `${filterLabel(filter)}のイベントは見つかりませんでした🙏\n` +
         "ほかの条件はアプリで探してみてください → " +
         SITE.url +
@@ -418,12 +468,13 @@ async function buildEventMessages(
     return [{ type: "text", text }];
   }
 
-  // 連携ユーザーなら、興味タグ一致(+2)・活動エリア一致(+1)でスコアリング。
+  // 連携ユーザーなら、興味タグ一致(+2)・活動エリア一致(+1)・保存履歴の学習重み(最大+2)でスコアリング。
   const matchScore = (e: EventRow): number => {
     if (!personal) return 0;
     let s = 0;
     if (e.category && personal.interests.has(e.category)) s += 2;
     if (personal.area && e.area && e.area === personal.area) s += 1;
+    if (e.category) s += personal.catWeights[e.category as EventCategory] ?? 0;
     return s;
   };
 
@@ -453,7 +504,7 @@ async function buildEventMessages(
   const personalized = picked.some((e) => matchScore(e) > 0);
 
   const headerLabel =
-    window || category || area
+    window || category || area || excludeCategory
       ? `${filterLabel(filter)}のイベントです！👇`
       : personalized
         ? "あなたの興味に合わせて選んだ、近々のイベントです！👇"
@@ -505,6 +556,8 @@ const KEYWORD_TEXT =
   "「映画」「相撲」「野球」など\n\n" +
   "▼ 地名でしぼる\n" +
   "「新宿」「渋谷」「恵比寿」「六本木」など\n\n" +
+  "▼ 除外もOK\n" +
+  "「花火以外」「祭りじゃなくて」\n\n" +
   "▼ 組み合わせもOK\n" +
   "「今週末の花火」「渋谷のグルメ」\n\n" +
   "▼ その他\n" +
@@ -578,16 +631,24 @@ async function handleMessage(ev: LineEvent) {
 
   // 2) 意図判定して返信。
   // 「今日」「明日」「今週末」＝期間、「祭り」「ライブ」＝ジャンル、
-  // 「恵比寿」「新宿」＝地名 で絞り込む。
+  // 「恵比寿」「新宿」＝地名、「花火以外」＝ジャンル除外 で絞り込む。
+  // 除外にマッチした部分は取り除いてから正のジャンル判定を行う
+  // (「花火以外」が「花火」として二重にヒットしないように)。
+  const excluded = detectExcludedCategory(text);
+  const textForCategory = excluded ? text.replace(excluded.matched, "") : text;
   const window = detectWindow(text);
-  const category = detectCategory(text);
+  const category = detectCategory(textForCategory);
   const area = detectArea(text);
   const intent = classify(text);
   let messages: LineMessage[];
-  if (window || category || area || intent === "event") {
+  if (window || category || area || excluded || intent === "event") {
     // 連携済みなら興味・エリアで並べ替え。未連携は null で従来通り。
     const personal = await getPersonalization(admin, lineUserId);
-    messages = await buildEventMessages(admin, { window, category, area }, personal);
+    messages = await buildEventMessages(
+      admin,
+      { window, category, area, excludeCategory: excluded?.filter ?? null },
+      personal
+    );
   } else if (intent === "keyword") {
     messages = [{ type: "text", text: KEYWORD_TEXT }];
   } else if (intent === "help") {
