@@ -19,7 +19,12 @@ import {
   type EventCategory,
 } from "@/lib/events";
 import { SITE } from "@/lib/site";
-import { AREA_COORDS, NEIGHBORHOOD_TO_AREA, type AreaName } from "@/lib/tokyo-areas";
+import {
+  AREA_COORDS,
+  NEIGHBORHOOD_TO_AREA,
+  nearbyAreas,
+  type AreaName,
+} from "@/lib/tokyo-areas";
 import { learnCategoryWeights } from "@/lib/personalization";
 
 export const runtime = "nodejs";
@@ -31,7 +36,12 @@ type LineEvent = {
   type: string;
   replyToken?: string;
   source?: LineSource;
-  message?: { type: string; text?: string };
+  message?: {
+    type: string;
+    text?: string;
+    latitude?: number;
+    longitude?: number;
+  };
 };
 
 // 連携コードで使う文字 (actions.ts の CODE_ALPHABET と一致させること)。
@@ -204,6 +214,94 @@ function detectArea(text: string): EventAreaFilter | null {
     if (text.includes(ward)) return { label: ward, value: ward };
   }
   return null;
+}
+
+// ---- 会話の文脈継続 -----------------------------------------------------
+
+// 「その中で」「他には」などの続き会話ワードを含むメッセージでは、今回の
+// メッセージから取れなかった次元 (window/category/area/excludeCategory) だけ
+// 直前の絞り込み条件 (TTL 以内) を引き継ぐ。単なる「渋谷で」等の単発指定は
+// 誤って古い条件を引きずらないよう、続き会話ワードがある時だけ発動する。
+const CONTINUATION_WORDS = [
+  "その中で", "そのなかで", "この中で", "このなかで",
+  "他には", "ほかには", "他にも", "ほかにも",
+  "続き", "つづき", "違うのは", "ちがうのは", "他にある", "ほかにある",
+  "近いのは", "近いの", "もっとある",
+];
+const CONTEXT_TTL_MS = 30 * 60 * 1000; // 30分
+
+function isContinuationText(text: string): boolean {
+  return CONTINUATION_WORDS.some((w) => text.includes(w));
+}
+
+async function loadConversationState(
+  admin: SupabaseClient,
+  lineUserId: string
+): Promise<EventFilter | null> {
+  const { data } = await admin
+    .from("line_conversation_state")
+    .select(
+      "window_label, window_start, window_end, category_label, category_values, area_label, area_value, exclude_label, exclude_values, updated_at"
+    )
+    .eq("line_user_id", lineUserId)
+    .maybeSingle();
+  if (!data) return null;
+  if (Date.now() - new Date(data.updated_at as string).getTime() > CONTEXT_TTL_MS) {
+    return null;
+  }
+
+  const window: EventWindow | null =
+    data.window_label && data.window_start && data.window_end
+      ? {
+          label: data.window_label as string,
+          startIso: data.window_start as string,
+          endIso: data.window_end as string,
+        }
+      : null;
+  const category: EventCategoryFilter | null =
+    data.category_label && data.category_values
+      ? { label: data.category_label as string, values: data.category_values as string[] }
+      : null;
+  const area: EventAreaFilter | null =
+    data.area_label && data.area_value
+      ? { label: data.area_label as string, value: data.area_value as AreaName }
+      : null;
+  const excludeCategory: EventCategoryFilter | null =
+    data.exclude_label && data.exclude_values
+      ? { label: data.exclude_label as string, values: data.exclude_values as string[] }
+      : null;
+
+  return { window, category, area, excludeCategory };
+}
+
+async function saveConversationState(
+  admin: SupabaseClient,
+  lineUserId: string,
+  filter: EventFilter
+): Promise<void> {
+  await admin.from("line_conversation_state").upsert({
+    line_user_id: lineUserId,
+    window_label: filter.window?.label ?? null,
+    window_start: filter.window?.startIso ?? null,
+    window_end: filter.window?.endIso ?? null,
+    category_label: filter.category?.label ?? null,
+    category_values: filter.category?.values ?? null,
+    area_label: filter.area?.label ?? null,
+    area_value: filter.area?.value ?? null,
+    exclude_label: filter.excludeCategory?.label ?? null,
+    exclude_values: filter.excludeCategory?.values ?? null,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+// 今回のメッセージで取れなかった次元だけ、直前の条件で補う。
+function mergeWithContext(current: EventFilter, stored: EventFilter): EventFilter {
+  return {
+    window: current.window ?? stored.window ?? null,
+    category: current.category ?? stored.category ?? null,
+    area: current.area ?? stored.area ?? null,
+    excludeCategory: current.excludeCategory ?? stored.excludeCategory ?? null,
+  };
 }
 
 // ---- 連携コード --------------------------------------------------------
@@ -560,6 +658,10 @@ const KEYWORD_TEXT =
   "「花火以外」「祭りじゃなくて」\n\n" +
   "▼ 組み合わせもOK\n" +
   "「今週末の花火」「渋谷のグルメ」\n\n" +
+  "▼ 現在地で探す\n" +
+  "位置情報(📎から送信)で近くのエリアを絞り込み\n\n" +
+  "▼ 続けて絞り込む\n" +
+  "「その中で近いのは」「他には」\n\n" +
   "▼ その他\n" +
   "「使い方」→ アプリの説明";
 
@@ -594,7 +696,38 @@ async function handleUnfollow(ev: LineEvent) {
     .eq("line_user_id", lineUserId);
 }
 
+// LINE の位置情報共有 (ピン送信) から、最寄りの区で絞り込んで返す。
+async function handleLocationMessage(ev: LineEvent) {
+  const lineUserId = ev.source?.userId;
+  const lat = ev.message?.latitude;
+  const lng = ev.message?.longitude;
+  if (!lineUserId || !ev.replyToken || lat == null || lng == null) return;
+
+  const admin = createAdminClient();
+  // 半径 200km あれば関東全域をカバーできるので、実質「一番近い区」を取る。
+  const nearest = nearbyAreas({ lat, lng }, 200)[0];
+  if (!nearest) {
+    await replyLineMessage(ev.replyToken, [
+      { type: "text", text: "近くのエリアが見つかりませんでした🙏" },
+    ]);
+    return;
+  }
+
+  const area: EventAreaFilter = { label: nearest.area, value: nearest.area };
+  const filter: EventFilter = { area };
+  const personal = await getPersonalization(admin, lineUserId);
+  const messages = await buildEventMessages(admin, filter, personal);
+  messages.unshift({
+    type: "text",
+    text: `📍 現在地から一番近いのは「${nearest.area}」エリア（約${nearest.km.toFixed(1)}km）でした！`,
+  });
+  await replyLineMessage(ev.replyToken, messages);
+  await saveConversationState(admin, lineUserId, filter);
+}
+
 async function handleMessage(ev: LineEvent) {
+  if (ev.message?.type === "location") return handleLocationMessage(ev);
+
   const lineUserId = ev.source?.userId;
   const text = ev.message?.type === "text" ? ev.message.text ?? "" : "";
   if (!lineUserId || !ev.replyToken) return;
@@ -640,15 +773,25 @@ async function handleMessage(ev: LineEvent) {
   const category = detectCategory(textForCategory);
   const area = detectArea(text);
   const intent = classify(text);
+  const continuation = isContinuationText(text);
   let messages: LineMessage[];
-  if (window || category || area || excluded || intent === "event") {
+  if (window || category || area || excluded || intent === "event" || continuation) {
+    let filter: EventFilter = {
+      window,
+      category,
+      area,
+      excludeCategory: excluded?.filter ?? null,
+    };
+    // 「その中で」「他には」などの続き会話語があれば、今回指定されなかった
+    // 次元だけ直前の絞り込み条件 (30分以内) を引き継ぐ。
+    if (continuation) {
+      const stored = await loadConversationState(admin, lineUserId);
+      if (stored) filter = mergeWithContext(filter, stored);
+    }
     // 連携済みなら興味・エリアで並べ替え。未連携は null で従来通り。
     const personal = await getPersonalization(admin, lineUserId);
-    messages = await buildEventMessages(
-      admin,
-      { window, category, area, excludeCategory: excluded?.filter ?? null },
-      personal
-    );
+    messages = await buildEventMessages(admin, filter, personal);
+    await saveConversationState(admin, lineUserId, filter);
   } else if (intent === "keyword") {
     messages = [{ type: "text", text: KEYWORD_TEXT }];
   } else if (intent === "help") {
