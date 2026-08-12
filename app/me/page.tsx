@@ -4,99 +4,21 @@ import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isAdmin, isRootAdmin } from "@/lib/admin";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { EmptyState } from "@/components/ui/empty-state";
 import { RankBadge } from "@/components/rank-badge";
 import { BackButton } from "@/components/back-button";
 import { SettingsMenu } from "./settings-menu";
-import { rankFor, nextRank } from "@/lib/rank";
-import { EventCover } from "@/components/event-cover";
-import {
-  CATEGORY_LABELS,
-  categoryBadgeClass,
-  eventScheduleLabel,
-  type EventCategory,
-} from "@/lib/events";
 import { isEventExpired } from "@/lib/datetime";
-
-type ReportListRow = {
-  id: string;
-  attended_on: string;
-  rating: number | null;
-  memo: string | null;
-  created_at: string;
-  events: {
-    id: string;
-    title: string;
-    starts_at: string;
-    category: EventCategory;
-  } | null;
-  attended_photos: { id: string; storage_path: string }[];
-};
-
-function formatAttendedDate(iso: string) {
-  return new Date(iso).toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  });
-}
+import type { EventCategory } from "@/lib/events";
 
 export const metadata = { title: "マイページ" };
 
-type SavedEventRow = {
-  created_at: string;
+type SavedExpiryRow = {
   events: {
-    id: string;
-    title: string;
     starts_at: string | null;
-    venue_name: string | null;
-    area: string | null;
-    category: EventCategory;
-    cover_image_url: string | null;
-    has_food_stalls: boolean | null;
     ends_at: string | null;
     is_permanent: boolean | null;
   } | null;
 };
-
-type SubmittedEventRow = {
-  id: string;
-  title: string;
-  starts_at: string;
-  venue_name: string | null;
-  area: string | null;
-  category: EventCategory;
-  cover_image_url: string | null;
-  has_food_stalls: boolean | null;
-  ends_at: string | null;
-  is_permanent: boolean | null;
-  approved: boolean;
-  created_at: string;
-};
-
-type PointTransactionRow = {
-  id: string;
-  delta: number;
-  reason: string;
-  ref_event_id: string | null;
-  created_at: string;
-};
-
-const REASON_LABELS: Record<string, string> = {
-  event_approved: "イベント承認ボーナス",
-  report_posted: "レポート投稿ボーナス",
-};
-
-function formatPointDate(iso: string) {
-  return new Date(iso).toLocaleDateString("ja-JP", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  });
-}
 
 export default async function MePage() {
   const supabase = await createClient();
@@ -108,69 +30,44 @@ export default async function MePage() {
     redirect("/login");
   }
 
-  const [profileRes, savedRes, submittedRes, pointHistoryRes, reportsRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("display_name, avatar_url, points, interest_categories, bio")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("saved_events")
-      .select(
-        `
-          created_at,
-          events (
-            id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls, is_permanent
-          )
-        `
-      )
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("events")
-      .select(
-        "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls, is_permanent, approved, created_at"
-      )
-      .eq("submitted_by", user.id)
-      .eq("source_type", "user")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("point_transactions")
-      .select("id, delta, reason, ref_event_id, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(10),
-    supabase
-      .from("attended_events")
-      .select(
-        `
-          id, attended_on, rating, memo, created_at,
-          events ( id, title, starts_at, category ),
-          attended_photos ( id, storage_path )
-        `
-      )
-      .eq("user_id", user.id)
-      .order("attended_on", { ascending: false })
-      .limit(20),
-  ]);
+  const [profileRes, savedRes, submittedCountRes, reportsCountRes] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("display_name, avatar_url, points, interest_categories, bio")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("saved_events")
+        .select(`events ( starts_at, ends_at, is_permanent )`)
+        .eq("user_id", user.id),
+      supabase
+        .from("events")
+        .select("id", { count: "exact", head: true })
+        .eq("submitted_by", user.id)
+        .eq("source_type", "user"),
+      supabase
+        .from("attended_events")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id),
+    ]);
 
   const profile = profileRes.data;
   const points = profile?.points ?? 0;
-  const interestCategories = (profile?.interest_categories ?? []) as EventCategory[];
-  const pointHistory = (pointHistoryRes.data ?? []) as PointTransactionRow[];
-  const saved = (savedRes.data ?? []) as unknown as SavedEventRow[];
-  const savedEvents = saved
+  const interestCategories = (profile?.interest_categories ??
+    []) as EventCategory[];
+
+  // 行きたい件数は過去イベントを除いてカウント（一覧ページと同じ条件）
+  const savedRows = (savedRes.data ?? []) as unknown as SavedExpiryRow[];
+  const savedCount = savedRows
     .map((row) => row.events)
-    .filter(
-      (e): e is NonNullable<SavedEventRow["events"]> => e !== null
-    )
-    // 開催日翌日 0:00 JST を過ぎた過去イベントは「行きたい」から除外
-    // (常設イベントは終了日が無く常に表示し続ける)
-    .filter((e) => e.is_permanent || !isEventExpired(e.ends_at ?? e.starts_at));
+    .filter((e): e is NonNullable<SavedExpiryRow["events"]> => e !== null)
+    .filter((e) => e.is_permanent || !isEventExpired(e.ends_at ?? e.starts_at))
+    .length;
 
-  const submittedEvents = (submittedRes.data ?? []) as SubmittedEventRow[];
+  const submittedCount = submittedCountRes.count ?? 0;
+  const reportsCount = reportsCountRes.count ?? 0;
 
-  // 管理者なら未承認イベント件数を取得
   const admin = await isAdmin();
   const root = admin ? await isRootAdmin() : false;
   let pendingCount = 0;
@@ -182,20 +79,33 @@ export default async function MePage() {
     pendingCount = count ?? 0;
   }
 
-  const reports = (reportsRes.data ?? []) as unknown as ReportListRow[];
-  const reportPhotoUrl = (path: string) =>
-    supabase.storage.from("event-reports").getPublicUrl(path).data.publicUrl;
-
   const displayName =
     profile?.display_name ?? user.email?.split("@")[0] ?? "ゲスト";
   const initial = displayName.charAt(0).toUpperCase();
   const lineAddFriendUrl = process.env.NEXT_PUBLIC_LINE_ADD_FRIEND_URL;
 
+  const contentLinks = [
+    { href: "/me/saved", icon: "♡", label: "行きたいイベント", count: savedCount },
+    { href: "/me/submitted", icon: "📮", label: "投稿したイベント", count: submittedCount },
+    { href: "/me/reports", icon: "📸", label: "行ったイベント", count: reportsCount },
+    { href: "/me/points", icon: "🏆", label: "ランク・ポイント", count: null },
+    { href: "/me/interests", icon: "🏷", label: "興味タグ", count: interestCategories.length },
+  ] as const;
+
+  const settingsLinks = [
+    { href: "/me/profile", icon: "🙍", label: "プロフィールを編集" },
+    { href: "/me/notifications", icon: "🔔", label: "通知設定" },
+    { href: "/settings/appearance", icon: "🎨", label: "表示・テーマ" },
+    { href: "/me/saved-searches", icon: "🔖", label: "保存した検索" },
+    { href: "/me/follows", icon: "👥", label: "フォロー" },
+  ] as const;
+
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-12">
+    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 sm:py-12">
       <nav className="mb-4 text-sm">
         <BackButton fallbackHref="/" label="戻る" />
       </nav>
+
       <header className="flex items-center gap-4">
         <Avatar className="size-16">
           {profile?.avatar_url && (
@@ -204,7 +114,9 @@ export default async function MePage() {
           <AvatarFallback>{initial}</AvatarFallback>
         </Avatar>
         <div className="flex min-w-0 flex-1 flex-col">
-          <h1 className="text-2xl font-bold tracking-tight">{displayName}</h1>
+          <h1 className="truncate text-2xl font-bold tracking-tight">
+            {displayName}
+          </h1>
           {profile?.bio ? (
             <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
               {profile.bio}
@@ -214,466 +126,106 @@ export default async function MePage() {
               {user.email}
             </p>
           )}
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <RankBadge points={points} compact />
-            <Link
-              href="/me/profile"
-              className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-            >
-              プロフィールを編集
-            </Link>
+          <div className="mt-1.5">
+            <RankBadge points={points} />
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="flex flex-col items-end rounded-lg border border-border bg-card px-3 py-2">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              pt
-            </span>
-            <span className="text-xl font-bold tabular-nums">{points}</span>
-          </div>
+        <div className="shrink-0">
           <SettingsMenu admin={admin} root={root} pendingCount={pendingCount} />
         </div>
       </header>
 
-      <Separator className="my-8" />
-
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">行きたいイベント</h2>
-          <span className="text-xs text-muted-foreground">
-            {savedEvents.length} 件
-          </span>
-        </div>
-
-        {savedEvents.length === 0 ? (
-          <EmptyState title="まだ登録されていません。">
-            <Link
-              href="/events"
-              className="text-foreground underline underline-offset-2"
-            >
-              イベント一覧
-            </Link>
-            から気になるものを保存できます。
-          </EmptyState>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {savedEvents.map((event) => (
-              <li key={event.id}>
-                <Link
-                  href={`/events/${event.id}`}
-                  className="group flex gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted"
-                >
-                  <EventCover
-                    coverImageUrl={event.cover_image_url}
-                    title={event.title}
-                    category={event.category}
-                    hasFoodStalls={event.has_food_stalls}
-                    width={200}
-                    className="h-20 w-20 shrink-0"
-                    rounded
-                  />
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="secondary"
-                        className={`text-xs ${categoryBadgeClass(
-                          event.category
-                        )}`}
-                      >
-                        {CATEGORY_LABELS[event.category]}
-                      </Badge>
-                      {event.starts_at || event.is_permanent ? (
-                        (() => {
-                          const s = eventScheduleLabel(
-                            event.starts_at,
-                            event.ends_at,
-                            event.is_permanent ?? false
-                          );
-                          return (
-                            <time
-                              className={`text-xs ${
-                                s.ongoing
-                                  ? "font-medium text-primary"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
-                              {s.text}
-                            </time>
-                          );
-                        })()
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          日程未定
-                        </span>
-                      )}
-                    </div>
-                    <p className="line-clamp-2 text-sm font-semibold">
-                      {event.title}
-                    </p>
-                    {(event.area || event.venue_name) && (
-                      <p className="line-clamp-1 text-xs text-muted-foreground">
-                        {event.area && `${event.area} / `}
-                        {event.venue_name}
-                      </p>
-                    )}
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <Separator className="my-8" />
-
-      <section>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">投稿したイベント</h2>
+      <nav className="mt-8 flex flex-col overflow-hidden rounded-xl border border-border bg-card">
+        {contentLinks.map((l, i) => (
           <Link
-            href="/events/new"
-            className={buttonVariants({ size: "sm", variant: "outline" })}
+            key={l.href}
+            href={l.href}
+            className={
+              "flex items-center gap-3 px-4 py-3.5 text-sm transition-colors hover:bg-muted " +
+              (i > 0 ? "border-t border-border" : "")
+            }
           >
-            + 新規投稿
-          </Link>
-        </div>
-
-        {submittedEvents.length === 0 ? (
-          <EmptyState title="まだ投稿はありません。">
-            <Link
-              href="/events/new"
-              className="text-foreground underline underline-offset-2"
-            >
-              イベントを投稿
-            </Link>
-            してみましょう。
-          </EmptyState>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {submittedEvents.map((event) => (
-              <li key={event.id}>
-                <Link
-                  href={`/events/${event.id}`}
-                  className="group flex gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted"
-                >
-                  <EventCover
-                    coverImageUrl={event.cover_image_url}
-                    title={event.title}
-                    category={event.category}
-                    hasFoodStalls={event.has_food_stalls}
-                    width={200}
-                    className="h-20 w-20 shrink-0"
-                    rounded
-                  />
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="secondary"
-                        className={`text-xs ${categoryBadgeClass(
-                          event.category
-                        )}`}
-                      >
-                        {CATEGORY_LABELS[event.category]}
-                      </Badge>
-                      <Badge
-                        variant={event.approved ? "default" : "outline"}
-                        className="text-xs"
-                      >
-                        {event.approved ? "公開中" : "承認待ち"}
-                      </Badge>
-                      {(() => {
-                        const s = eventScheduleLabel(
-                          event.starts_at,
-                          event.ends_at,
-                          event.is_permanent ?? false
-                        );
-                        return (
-                          <time
-                            className={`text-xs ${
-                              s.ongoing
-                                ? "font-medium text-primary"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {s.text}
-                          </time>
-                        );
-                      })()}
-                    </div>
-                    <p className="line-clamp-2 text-sm font-semibold">
-                      {event.title}
-                    </p>
-                    {(event.area || event.venue_name) && (
-                      <p className="line-clamp-1 text-xs text-muted-foreground">
-                        {event.area && `${event.area} / `}
-                        {event.venue_name}
-                      </p>
-                    )}
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <Separator className="my-8" />
-
-      <section>
-        <h2 className="mb-4 text-lg font-semibold">ランク</h2>
-        <RankProgress points={points} />
-      </section>
-
-      <Separator className="my-8" />
-
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">ポイント履歴</h2>
-          <span className="text-xs text-muted-foreground">
-            残高 {points} pt
-          </span>
-        </div>
-
-        {pointHistory.length === 0 ? (
-          <EmptyState title="まだ履歴がありません。">
-            投稿が承認されると +10pt が加算されます。
-          </EmptyState>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {pointHistory.map((tx) => (
-              <li
-                key={tx.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-sm"
-              >
-                <div className="flex flex-col">
-                  <span className="font-medium">
-                    {REASON_LABELS[tx.reason] ?? tx.reason}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatPointDate(tx.created_at)}
-                  </span>
-                </div>
-                <span
-                  className={
-                    "tabular-nums font-semibold " +
-                    (tx.delta >= 0 ? "text-emerald-600" : "text-red-600")
-                  }
-                >
-                  {tx.delta > 0 ? "+" : ""}
-                  {tx.delta} pt
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <Separator className="my-8" />
-
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">行ったイベント</h2>
-          <span className="text-xs text-muted-foreground">
-            {reports.length} 件
-          </span>
-        </div>
-
-        {reports.length === 0 ? (
-          <EmptyState title="まだレポートはありません。">
-            参加したイベントのページから「行ってきた / 感想を投稿」できます。
-          </EmptyState>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {reports.map((r) => {
-              const ev = r.events;
-              const photos = r.attended_photos ?? [];
-              const firstPhoto = photos[0];
-              return (
-                <li key={r.id}>
-                  <Link
-                    href={ev ? `/events/${ev.id}` : "#"}
-                    className="group flex gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted"
-                  >
-                    {firstPhoto ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={reportPhotoUrl(firstPhoto.storage_path)}
-                        alt=""
-                        className="h-20 w-20 shrink-0 rounded object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded bg-muted text-[10px] text-muted-foreground">
-                        no photo
-                      </div>
-                    )}
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <div className="flex items-center gap-2">
-                        {ev && (
-                          <Badge
-                            variant="secondary"
-                            className={`text-xs ${categoryBadgeClass(
-                              ev.category
-                            )}`}
-                          >
-                            {CATEGORY_LABELS[ev.category]}
-                          </Badge>
-                        )}
-                        <time className="text-xs text-muted-foreground">
-                          {formatAttendedDate(r.attended_on)}
-                        </time>
-                        {r.rating != null && (
-                          <span className="text-xs text-amber-500">
-                            {"★".repeat(r.rating)}
-                          </span>
-                        )}
-                        {photos.length > 1 && (
-                          <span className="text-[10px] text-muted-foreground">
-                            +{photos.length - 1} 枚
-                          </span>
-                        )}
-                      </div>
-                      <p className="line-clamp-1 text-sm font-semibold">
-                        {ev?.title ?? "(削除されたイベント)"}
-                      </p>
-                      {r.memo && (
-                        <p className="line-clamp-2 text-xs text-muted-foreground">
-                          {r.memo}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <Separator className="my-8" />
-
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">興味タグ</h2>
-          <Link
-            href="/me/interests"
-            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-          >
-            編集 →
-          </Link>
-        </div>
-        {interestCategories.length === 0 ? (
-          <EmptyState title="好きなジャンルを設定すると、ホームで優先表示されます。" />
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {interestCategories.map((c) => (
-              <Badge key={c} variant="secondary" className="text-xs">
-                {CATEGORY_LABELS[c]}
-              </Badge>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <Separator className="my-8" />
-
-      <section>
-        <h2 className="mb-4 text-lg font-semibold">設定・その他</h2>
-        <nav className="flex flex-col rounded-lg border border-border">
-          {lineAddFriendUrl && (
-            <>
-              <a
-                href={lineAddFriendUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
-              >
-                <span className="flex items-center gap-2 font-medium">
-                  <span aria-hidden>💬</span>
-                  Cue 公式 LINE を友だち追加
-                </span>
-                <span className="text-[#06C755]">↗</span>
-              </a>
-              <Separator />
-            </>
-          )}
-          <Link
-            href="/terms"
-            className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
-          >
-            利用規約
-            <span className="text-muted-foreground">→</span>
-          </Link>
-          <Separator />
-          <Link
-            href="/privacy"
-            className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
-          >
-            プライバシーポリシー
-            <span className="text-muted-foreground">→</span>
-          </Link>
-          <Separator />
-          <Link
-            href="/contact"
-            className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
-          >
-            お問い合わせ
-            <span className="text-muted-foreground">→</span>
-          </Link>
-          <Separator />
-          <Link
-            href="/credits"
-            className="flex items-center justify-between px-4 py-3 text-sm hover:bg-muted/50"
-          >
-            画像クレジット
-            <span className="text-muted-foreground">→</span>
-          </Link>
-        </nav>
-      </section>
-    </div>
-  );
-}
-
-function RankProgress({ points }: { points: number }) {
-  const rank = rankFor(points);
-  const next = nextRank(points);
-
-  // 現在ランクの下限〜次ランクの下限の進捗バー
-  const lower = rank.minPoints;
-  const upper = next ? next.rank.minPoints : lower;
-  const ratio =
-    next && upper > lower
-      ? Math.min(1, (points - lower) / (upper - lower))
-      : 1;
-
-  return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      <div className="flex items-center justify-between gap-3">
-        <RankBadge points={points} />
-        {next ? (
-          <span className="text-xs text-muted-foreground">
-            次の「{next.rank.icon} {next.rank.label}」まであと{" "}
-            <span className="font-semibold text-foreground">
-              {next.remaining}pt
+            <span aria-hidden className="w-5 text-center text-base">
+              {l.icon}
             </span>
-          </span>
-        ) : (
-          <span className="text-xs text-muted-foreground">最高ランク到達 🎉</span>
+            <span className="flex-1 font-medium">{l.label}</span>
+            {l.count != null && (
+              <span className="tabular-nums text-xs text-muted-foreground">
+                {l.count} 件
+              </span>
+            )}
+            <span aria-hidden className="text-muted-foreground">
+              ›
+            </span>
+          </Link>
+        ))}
+      </nav>
+
+      <h2 className="mb-2 mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        設定
+      </h2>
+      <nav className="flex flex-col overflow-hidden rounded-xl border border-border bg-card">
+        {settingsLinks.map((l, i) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            className={
+              "flex items-center gap-3 px-4 py-3.5 text-sm transition-colors hover:bg-muted " +
+              (i > 0 ? "border-t border-border" : "")
+            }
+          >
+            <span aria-hidden className="w-5 text-center text-base">
+              {l.icon}
+            </span>
+            <span className="flex-1 font-medium">{l.label}</span>
+            <span aria-hidden className="text-muted-foreground">
+              ›
+            </span>
+          </Link>
+        ))}
+      </nav>
+
+      <h2 className="mb-2 mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        その他
+      </h2>
+      <nav className="flex flex-col overflow-hidden rounded-xl border border-border bg-card">
+        {lineAddFriendUrl && (
+          <a
+            href={lineAddFriendUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-4 py-3.5 text-sm transition-colors hover:bg-muted"
+          >
+            <span aria-hidden className="w-5 text-center text-base">
+              💬
+            </span>
+            <span className="flex-1 font-medium">
+              Cue 公式 LINE を友だち追加
+            </span>
+            <span className="text-[#06C755]">↗</span>
+          </a>
         )}
-      </div>
-
-      <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className="h-full rounded-full bg-foreground transition-all"
-          style={{ width: `${Math.round(ratio * 100)}%` }}
-        />
-      </div>
-
-      <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-        イベントを投稿して承認されると{" "}
-        <span className="font-medium text-foreground">+10pt</span>、参加レポートを
-        投稿すると <span className="font-medium text-foreground">+5pt</span>。
-        貯まったポイントで称号がランクアップします。
-      </p>
+        {[
+          { href: "/terms", label: "利用規約" },
+          { href: "/privacy", label: "プライバシーポリシー" },
+          { href: "/contact", label: "お問い合わせ" },
+          { href: "/credits", label: "画像クレジット" },
+        ].map((l, i) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            className={
+              "flex items-center gap-3 px-4 py-3.5 text-sm transition-colors hover:bg-muted " +
+              (i > 0 || lineAddFriendUrl ? "border-t border-border" : "")
+            }
+          >
+            <span className="flex-1">{l.label}</span>
+            <span aria-hidden className="text-muted-foreground">
+              ›
+            </span>
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }
