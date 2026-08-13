@@ -11,7 +11,7 @@ import { EventCover } from "@/components/event-cover";
 import { EventLocationMap } from "@/components/event-location-map";
 import { Separator } from "@/components/ui/separator";
 import { SaveButton } from "./save-button";
-import { TrackView, TrackedLink } from "./track";
+import { TrackView, TrackedLink, LineShareButton } from "./track";
 import { AdminDeleteButton } from "./admin-delete-button";
 import { BackButton } from "@/components/back-button";
 import { isAdmin } from "@/lib/admin";
@@ -602,6 +602,11 @@ export default async function EventDetailPage({
             カレンダーに追加 (.ics)
           </a>
         )}
+        <LineShareButton
+          eventId={event.id}
+          title={event.title}
+          url={`${SITE.url}/events/${event.id}`}
+        />
         {canReport && (
           <Link
             href={`/events/${event.id}/report`}
