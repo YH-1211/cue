@@ -13,11 +13,17 @@ async function isGateAllowed(request: NextRequest): Promise<boolean> {
   // ゲート画面自体・照合API・Cron (CRON_SECRET で別途保護) は素通り。
   // - /privacy, /terms: LINE 等の外部登録で公開URLが必要なため常時公開
   // - /api/line: LINE Webhook。Cookie ではなく署名検証で保護するため素通り
+  // - manifest.webmanifest / sw.js / offline.html: PWA インストールにはブラウザが
+  //   これらを直接読める必要があり (特に PC の Chrome/Edge は自動判定)、ゲートで
+  //   リダイレクトされるとインストール条件を満たせない。中身は秘密情報ではないため開放。
   if (
     pathname === "/gate" ||
     pathname === "/api/gate" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/sw.js" ||
+    pathname === "/offline.html" ||
     pathname.startsWith("/api/cron") ||
     pathname.startsWith("/api/line")
   ) {
