@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useDismissable } from "@/hooks/use-dismissable";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -93,7 +94,9 @@ export function EventsFilters({
   };
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggest, setShowSuggest] = useState(false);
-  const boxRef = useRef<HTMLDivElement>(null);
+  const { containerRef: boxRef } = useDismissable(showSuggest, () =>
+    setShowSuggest(false)
+  );
 
   useEffect(() => {
     const term = q.trim();
@@ -119,16 +122,6 @@ export function EventsFilters({
       ctrl.abort();
     };
   }, [q]);
-
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
-        setShowSuggest(false);
-      }
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, []);
 
   function apply(next: {
     q?: string;
@@ -191,6 +184,14 @@ export function EventsFilters({
     evening ||
     foodStalls;
 
+  // 「詳細な絞り込み」内で有効になっている条件の数 (カテゴリも含む)
+  const detailCount =
+    (category ? 1 : 0) +
+    (free ? 1 : 0) +
+    (evening ? 1 : 0) +
+    (foodStalls ? 1 : 0) +
+    areas.length;
+
   const SORTS = [
     { value: "", label: "開催が近い順" },
     { value: "popular", label: "人気順" },
@@ -200,7 +201,7 @@ export function EventsFilters({
   return (
     <div
       className={cn(
-        "flex flex-col gap-4 transition-opacity",
+        "flex flex-col gap-2.5 transition-opacity",
         pending && "opacity-60"
       )}
     >
@@ -287,40 +288,26 @@ export function EventsFilters({
         </div>
       </div>
 
-      {/* クイックフィルタ */}
-      <div className="flex flex-wrap gap-1.5">
-        <PillButton
-          active={date === "weekend"}
-          onClick={() => selectDate(date === "weekend" ? "" : "weekend")}
-        >
-          今週末
-        </PillButton>
-        <PillButton active={free} onClick={() => apply({ free: !free })}>
-          無料
-        </PillButton>
-        <PillButton
-          active={evening}
-          onClick={() => apply({ evening: !evening })}
-        >
-          夜開催 (18時〜)
-        </PillButton>
-        <PillButton
-          active={foodStalls}
-          onClick={() => apply({ food: !foodStalls })}
-        >
-          屋台あり
-        </PillButton>
-      </div>
+      {/* 詳細な絞り込み (カテゴリ + こだわり条件 + エリア) */}
+      <details
+        className="rounded-lg border border-border bg-card p-3"
+        open={detailCount > 0}
+      >
+        <summary className="cursor-pointer text-sm font-medium select-none">
+          カテゴリ・詳細な絞り込み {detailCount > 0 && `(${detailCount})`}
+        </summary>
 
-      {/* カテゴリ (親 → サブの2階層) */}
-      {(() => {
-        const active = category && isEventCategory(category) ? category : "";
-        const activeParent = active ? parentOf(active) : null;
-        return (
-          <div className="flex flex-col gap-2">
-            {/* 親カテゴリ */}
-            <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-              <div className="flex gap-1.5">
+        {/* カテゴリ (親 → サブの2階層) */}
+        {(() => {
+          const active = category && isEventCategory(category) ? category : "";
+          const activeParent = active ? parentOf(active) : null;
+          return (
+            <div className="mt-3 flex flex-col gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                カテゴリ
+              </span>
+              {/* 親カテゴリ (横スクロールせず折り返しで全部見せる) */}
+              <div className="flex flex-wrap gap-1.5">
                 <PillButton
                   active={active === ""}
                   onClick={() => selectCategory("")}
@@ -338,11 +325,9 @@ export function EventsFilters({
                   </PillButton>
                 ))}
               </div>
-            </div>
-            {/* サブカテゴリ (親選択時のみ) */}
-            {activeParent && (
-              <div className="-mx-4 overflow-x-auto border-t border-border px-4 pt-2 sm:mx-0 sm:px-0">
-                <div className="flex gap-1.5">
+              {/* サブカテゴリ (親選択時のみ) */}
+              {activeParent && (
+                <div className="flex flex-wrap gap-1.5 border-t border-border pt-2">
                   <PillButton
                     active={isParentCategory(active as string)}
                     onClick={() => selectCategory(activeParent)}
@@ -360,18 +345,40 @@ export function EventsFilters({
                     </PillButton>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
+              )}
+            </div>
+          );
+        })()}
 
-      {/* エリア (都県 → 市区, 複数選択) */}
-      <details className="rounded-lg border border-border bg-card p-3">
-        <summary className="cursor-pointer text-sm font-medium select-none">
-          エリアで絞り込む {areas.length > 0 && `(${areas.length})`}
-        </summary>
-        <div className="mt-3 flex flex-col gap-3">
+        <div className="mt-4 flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">
+            こだわり条件
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            <PillButton active={free} onClick={() => apply({ free: !free })}>
+              無料
+            </PillButton>
+            <PillButton
+              active={evening}
+              onClick={() => apply({ evening: !evening })}
+            >
+              夜開催 (18時〜)
+            </PillButton>
+            <PillButton
+              active={foodStalls}
+              onClick={() => apply({ food: !foodStalls })}
+            >
+              屋台あり
+            </PillButton>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">
+            エリア {areas.length > 0 && `(${areas.length})`}
+          </span>
+        </div>
+        <div className="mt-2 flex flex-col gap-3">
           {PREFECTURES.map((pref) => (
             <div key={pref} className="flex flex-col gap-1.5">
               <span className="text-xs font-medium text-muted-foreground">

@@ -222,39 +222,35 @@ export default async function SearchPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6 sm:py-12">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">検索</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          キーワード・日付・カテゴリで絞り込むか、地図で近くを探せます。
-        </p>
+    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8">
+      {/* 見出しと表示切り替えを1行にまとめて、イベントを早く見せる */}
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">検索</h1>
+        <div className="inline-flex rounded-lg border border-border bg-card p-1 text-sm">
+          <Link
+            href="/search"
+            className={cn(
+              "rounded-md px-3 py-1 transition-colors",
+              view === "list"
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            リスト
+          </Link>
+          <Link
+            href="/search?view=map"
+            className={cn(
+              "rounded-md px-3 py-1 transition-colors",
+              view === "map"
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            地図で近くを探す
+          </Link>
+        </div>
       </header>
-
-      {/* 表示切り替え: リスト / 地図 */}
-      <div className="mb-6 inline-flex rounded-lg border border-border bg-card p-1 text-sm">
-        <Link
-          href="/search"
-          className={cn(
-            "rounded-md px-4 py-1.5 transition-colors",
-            view === "list"
-              ? "bg-foreground text-background"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          リストで絞り込み
-        </Link>
-        <Link
-          href="/search?view=map"
-          className={cn(
-            "rounded-md px-4 py-1.5 transition-colors",
-            view === "map"
-              ? "bg-foreground text-background"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          地図で近くを探す
-        </Link>
-      </div>
 
       {view === "map" ? (
         <NearbyClient homeArea={homeArea} mapEvents={mapEvents} />
