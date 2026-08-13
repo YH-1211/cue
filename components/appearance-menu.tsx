@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Palette, Check } from "lucide-react";
 import { saveAppearance } from "@/app/settings/appearance/actions";
+import { useDismissable } from "@/hooks/use-dismissable";
 
 type Theme = "light" | "dark" | "system";
 type Accent = "violet" | "orange" | "blue" | "teal" | "pink" | "green";
@@ -36,7 +37,9 @@ export function AppearanceMenu() {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>("system");
   const [accent, setAccent] = useState<Accent>("violet");
-  const ref = useRef<HTMLDivElement>(null);
+  const { containerRef, triggerRef } = useDismissable(open, () =>
+    setOpen(false)
+  );
 
   // マウント後に現在の保存値を読み込む (SSR とズレないよう初期値は固定)
   useEffect(() => {
@@ -49,17 +52,6 @@ export function AppearanceMenu() {
       // ignore
     }
   }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
 
   function chooseTheme(t: Theme) {
     setTheme(t);
@@ -86,8 +78,9 @@ export function AppearanceMenu() {
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={containerRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="表示テーマ"

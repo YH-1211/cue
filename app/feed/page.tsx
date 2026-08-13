@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/utils/supabase/server";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -344,14 +345,15 @@ export default async function FeedPage({
                   }
                 >
                   {photos.slice(0, 6).map((p) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={p.id}
-                      src={photoUrl(p.storage_path)}
-                      alt={p.caption ?? ""}
-                      loading="lazy"
-                      className="aspect-square w-full object-cover"
-                    />
+                    <div key={p.id} className="relative aspect-square">
+                      <Image
+                        src={photoUrl(p.storage_path)}
+                        alt={p.caption ?? ""}
+                        fill
+                        sizes="(max-width: 640px) 33vw, 200px"
+                        className="object-cover"
+                      />
+                    </div>
                   ))}
                 </div>
               )}

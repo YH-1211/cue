@@ -178,7 +178,12 @@ export function CommentSection({
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="コメントを追加…"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    submit(e);
+                  }
+                }}
+                placeholder="コメントを追加… (⌘/Ctrl+Enter で送信)"
                 rows={2}
                 maxLength={500}
                 className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"

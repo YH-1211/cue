@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -7,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EventCover } from "@/components/event-cover";
+import { EventLocationMap } from "@/components/event-location-map";
 import { Separator } from "@/components/ui/separator";
 import { SaveButton } from "./save-button";
 import { TrackView, TrackedLink } from "./track";
@@ -505,6 +507,32 @@ export default async function EventDetailPage({
         )}
       </dl>
 
+      {event.lat != null && event.lng != null && (
+        <>
+          <Separator className="my-8" />
+          <section>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">場所</h2>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${event.lat},${event.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Googleマップで開く ↗
+              </a>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <EventLocationMap
+                lat={event.lat}
+                lng={event.lng}
+                label={event.venue_name ?? event.area}
+              />
+            </div>
+          </section>
+        </>
+      )}
+
       {event.description && (
         <>
           <Separator className="my-8" />
@@ -707,14 +735,14 @@ export default async function EventDetailPage({
                           {photos.map((p) => (
                             <li
                               key={p.id}
-                              className="aspect-square overflow-hidden rounded border border-border bg-muted"
+                              className="relative aspect-square overflow-hidden rounded border border-border bg-muted"
                             >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
+                              <Image
                                 src={photoUrlMap.get(p.id) ?? ""}
                                 alt={p.caption ?? ""}
-                                className="h-full w-full object-cover"
-                                loading="lazy"
+                                fill
+                                sizes="(max-width: 640px) 33vw, 200px"
+                                className="object-cover"
                               />
                             </li>
                           ))}

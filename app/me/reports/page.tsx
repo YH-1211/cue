@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
@@ -91,13 +92,15 @@ export default async function ReportsPage() {
                   className="group flex gap-3 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-muted"
                 >
                   {firstPhoto ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={reportPhotoUrl(firstPhoto.storage_path)}
-                      alt=""
-                      className="h-20 w-20 shrink-0 rounded object-cover"
-                      loading="lazy"
-                    />
+                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded">
+                      <Image
+                        src={reportPhotoUrl(firstPhoto.storage_path)}
+                        alt=""
+                        fill
+                        sizes="80px"
+                        className="object-cover"
+                      />
+                    </div>
                   ) : (
                     <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded bg-muted text-[10px] text-muted-foreground">
                       no photo

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Settings } from "lucide-react";
 import { signOut } from "@/app/login/actions";
+import { useDismissable } from "@/hooks/use-dismissable";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -37,22 +38,14 @@ const ADMIN_LINKS = [
 
 export function SettingsMenu({ admin, root, pendingCount }: Props) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open]);
+  const { containerRef, triggerRef } = useDismissable(open, () =>
+    setOpen(false)
+  );
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={containerRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="設定"
