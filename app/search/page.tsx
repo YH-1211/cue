@@ -18,6 +18,7 @@ import { startOfTodayJstIso } from "@/lib/datetime";
 import { EventsFilters } from "@/app/events/filters";
 import { NearbyClient, type MapEvent } from "@/app/nearby/nearby-client";
 import { SaveSearchBar } from "./save-search-bar";
+import { RecentEvents } from "@/components/recent-events";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "検索" };
@@ -293,16 +294,19 @@ function SearchListView({
       )}
 
       {!hasFilter ? (
-        <EmptyState title="上のフォームから条件を選んでください。">
-          ぶらっと眺めたいときは
-          <Link
-            href="/events"
-            className="ml-1 text-foreground underline underline-offset-2"
-          >
-            イベント一覧
-          </Link>
-          へどうぞ。
-        </EmptyState>
+        <>
+          <RecentEvents />
+          <EmptyState title="上のフォームから条件を選んでください。">
+            ぶらっと眺めたいときは
+            <Link
+              href="/events"
+              className="ml-1 text-foreground underline underline-offset-2"
+            >
+              イベント一覧
+            </Link>
+            へどうぞ。
+          </EmptyState>
+        </>
       ) : errorMessage ? (
         <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
           検索に失敗しました。時間をおいて再度お試しください。

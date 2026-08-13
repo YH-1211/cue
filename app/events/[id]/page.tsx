@@ -374,7 +374,13 @@ export default async function EventDetailPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      {event.approved && <TrackView eventId={event.id} />}
+      {event.approved && (
+        <TrackView
+          eventId={event.id}
+          title={event.title}
+          category={event.category}
+        />
+      )}
       <nav className="mb-4 text-sm">
         <BackButton fallbackHref="/events" label="戻る" />
       </nav>

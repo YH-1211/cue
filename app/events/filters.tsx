@@ -15,6 +15,11 @@ import {
   parentOf,
 } from "@/lib/events";
 import { AREAS_BY_PREFECTURE, PREFECTURES } from "@/lib/tokyo-areas";
+import {
+  getRecentSearches,
+  pushRecentSearch,
+  removeRecentSearch,
+} from "@/lib/recent";
 import { cn } from "@/lib/utils";
 
 type Facets = {
@@ -94,9 +99,35 @@ export function EventsFilters({
   };
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggest, setShowSuggest] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const { containerRef: boxRef } = useDismissable(showSuggest, () =>
     setShowSuggest(false)
   );
+
+  // 端末ローカルの検索履歴を読み込む (localStorage は client のみ・
+  // hydration mismatch を避けるためマウント後に読む)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRecentSearches(getRecentSearches());
+  }, []);
+
+  // キーワード入力が短い間は履歴を、2文字以上でイベント候補を出す
+  const showRecent = q.trim().length < 2 && recentSearches.length > 0;
+
+  function runSearch(term: string) {
+    const t = term.trim();
+    if (t) {
+      pushRecentSearch(t);
+      setRecentSearches(getRecentSearches());
+    }
+    setShowSuggest(false);
+    apply({ q: t });
+  }
+
+  function dropRecentSearch(term: string) {
+    removeRecentSearch(term);
+    setRecentSearches(getRecentSearches());
+  }
 
   useEffect(() => {
     const term = q.trim();
@@ -171,7 +202,7 @@ export function EventsFilters({
 
   function submitSearch(e: React.FormEvent) {
     e.preventDefault();
-    apply({ q });
+    runSearch(q);
   }
 
   const hasAny =
@@ -219,7 +250,38 @@ export function EventsFilters({
             className="h-9"
             autoComplete="off"
           />
-          {showSuggest && suggestions.length > 0 && (
+          {showSuggest && showRecent && (
+            <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-card shadow-lg">
+              <li className="flex items-center justify-between px-3 pb-1 pt-2">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  最近の検索
+                </span>
+              </li>
+              {recentSearches.map((term) => (
+                <li key={term} className="flex items-center hover:bg-muted">
+                  <button
+                    type="button"
+                    onClick={() => runSearch(term)}
+                    className="flex flex-1 items-center gap-2 px-3 py-2 text-left text-sm"
+                  >
+                    <span aria-hidden className="text-muted-foreground">
+                      🕘
+                    </span>
+                    <span className="line-clamp-1">{term}</span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`「${term}」を履歴から削除`}
+                    onClick={() => dropRecentSearch(term)}
+                    className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {showSuggest && !showRecent && suggestions.length > 0 && (
             <ul className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-card shadow-lg">
               {suggestions.map((s) => (
                 <li key={s.id}>

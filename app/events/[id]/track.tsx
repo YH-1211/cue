@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { pushRecentEvent } from "@/lib/recent";
+import type { EventCategory } from "@/lib/events";
 
 type Kind = "view" | "official_click" | "ticket_click" | "share";
 
@@ -24,14 +26,24 @@ function send(eventId: string, kind: Kind) {
   }).catch(() => {});
 }
 
-// 詳細ページ表示で view を1回記録する（同一タブ内の再表示は送らない）
-export function TrackView({ eventId }: { eventId: string }) {
+// 詳細ページ表示で view を1回記録する（同一タブ内の再表示は送らない）。
+// あわせて端末ローカルの「最近見たイベント」にも積む（毎回更新して先頭に）。
+export function TrackView({
+  eventId,
+  title,
+  category,
+}: {
+  eventId: string;
+  title: string;
+  category: EventCategory;
+}) {
   useEffect(() => {
+    pushRecentEvent({ id: eventId, title, category });
     const key = `cue_viewed:${eventId}`;
     if (sessionStorage.getItem(key)) return;
     sessionStorage.setItem(key, "1");
     send(eventId, "view");
-  }, [eventId]);
+  }, [eventId, title, category]);
   return null;
 }
 
