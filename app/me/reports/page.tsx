@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { PenLine } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -76,7 +77,10 @@ export default async function ReportsPage() {
       </header>
 
       {reports.length === 0 ? (
-        <EmptyState title="まだレポートはありません。">
+        <EmptyState
+          icon={<PenLine aria-hidden className="size-8" />}
+          title="まだレポートはありません。"
+        >
           参加したイベントのページから「行ってきた / 感想を投稿」できます。
         </EmptyState>
       ) : (

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PlusCircle } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -70,7 +71,10 @@ export default async function SubmittedEventsPage() {
       </header>
 
       {submittedEvents.length === 0 ? (
-        <EmptyState title="まだ投稿はありません。">
+        <EmptyState
+          icon={<PlusCircle aria-hidden className="size-8" />}
+          title="まだ投稿はありません。"
+        >
           <Link
             href="/events/new"
             className="text-foreground underline underline-offset-2"

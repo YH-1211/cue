@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Users } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -237,6 +238,7 @@ export default async function FeedPage({
 
       {reports.length === 0 && !before && !(following && !viewer) && (
         <EmptyState
+          icon={<Users aria-hidden className="size-8" />}
           title={
             following
               ? "フォロー中のユーザーの投稿はまだありません。"

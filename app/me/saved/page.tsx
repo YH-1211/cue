@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Bookmark } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -75,7 +76,10 @@ export default async function SavedEventsPage() {
       </header>
 
       {savedEvents.length === 0 ? (
-        <EmptyState title="まだ登録されていません。">
+        <EmptyState
+          icon={<Bookmark aria-hidden className="size-8" />}
+          title="まだ「行きたい」がありません。"
+        >
           <Link
             href="/events"
             className="text-foreground underline underline-offset-2"

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Search } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { BackButton } from "@/components/back-button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -37,7 +38,10 @@ export default async function SavedSearchesPage() {
       </header>
 
       {searches.length === 0 ? (
-        <EmptyState title="まだ保存した検索はありません。">
+        <EmptyState
+          icon={<Search aria-hidden className="size-8" />}
+          title="まだ保存した検索はありません。"
+        >
           <Link
             href="/search"
             className="inline-block text-foreground underline underline-offset-2"

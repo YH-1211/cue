@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Coins } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RankBadge } from "@/components/rank-badge";
@@ -73,7 +74,10 @@ export default async function PointsPage() {
         </div>
 
         {pointHistory.length === 0 ? (
-          <EmptyState title="まだ履歴がありません。">
+          <EmptyState
+            icon={<Coins aria-hidden className="size-8" />}
+            title="まだ履歴がありません。"
+          >
             投稿が承認されると +10pt が加算されます。
           </EmptyState>
         ) : (
