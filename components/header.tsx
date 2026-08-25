@@ -20,7 +20,7 @@ export async function Header() {
             href="/"
             className="text-lg font-bold tracking-tight text-foreground"
           >
-            Cue
+            Que
           </Link>
           <MainNav />
         </div>

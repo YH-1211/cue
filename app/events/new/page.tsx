@@ -21,7 +21,7 @@ export default async function NewEventPage() {
           イベントを投稿
         </h1>
         <p className="text-sm text-muted-foreground">
-          知っているイベントを Cue に登録しましょう。
+          知っているイベントを Que に登録しましょう。
           承認されると公開されます。
         </p>
       </header>

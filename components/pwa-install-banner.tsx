@@ -155,7 +155,7 @@ export function PWAInstallBanner() {
             className="size-10 shrink-0 rounded-lg"
           />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <p className="text-sm font-semibold">Cue をアプリとして追加</p>
+            <p className="text-sm font-semibold">Que をアプリとして追加</p>
             {mode === "android" ? (
               <p className="text-xs text-muted-foreground">
                 ホーム画面に追加すると、起動が速くなり通知も受け取れます。

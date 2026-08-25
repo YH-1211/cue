@@ -64,7 +64,7 @@ export function ShareCardButton({
               </a>
               <a
                 href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                  `行ってきた：${eventTitle} #Cue`
+                  `行ってきた：${eventTitle} #Que`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"

@@ -121,10 +121,10 @@ export function LineSection({ linked, notifyViaLine, addFriendUrl }: Props) {
                   rel="noopener noreferrer"
                   className="font-medium text-foreground underline underline-offset-2"
                 >
-                  Cue 公式 LINE を友だち追加
+                  Que 公式 LINE を友だち追加
                 </a>
               ) : (
-                "Cue 公式 LINE を友だち追加"
+                "Que 公式 LINE を友だち追加"
               )}
             </li>
             <li>下のボタンで連携コードを発行</li>

@@ -183,7 +183,7 @@ export function NotificationsClient({
               を選ぶ
             </li>
             <li>
-              追加された Cue アイコンから開き直し、この画面で
+              追加された Que アイコンから開き直し、この画面で
               <span className="font-medium text-foreground">「通知をオン」</span>
             </li>
           </ol>

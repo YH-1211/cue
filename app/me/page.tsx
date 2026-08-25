@@ -178,7 +178,7 @@ export default async function MePage() {
               💬
             </span>
             <span className="flex-1 font-medium">
-              Cue 公式 LINE を友だち追加
+              Que 公式 LINE を友だち追加
             </span>
             <span className="text-[#06C755]">↗</span>
           </a>

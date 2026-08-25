@@ -109,10 +109,10 @@ self.addEventListener("push", (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: "Cue", body: event.data ? event.data.text() : "" };
+    data = { title: "Que", body: event.data ? event.data.text() : "" };
   }
 
-  const title = data.title || "Cue";
+  const title = data.title || "Que";
   const options = {
     body: data.body || "",
     icon: data.icon || "/icon-192.png",

@@ -80,7 +80,7 @@ export async function GET(
     return new Response("event not found", { status: 404 });
   }
 
-  const name = row.profiles?.display_name ?? "Cue ユーザー";
+  const name = row.profiles?.display_name ?? "Que ユーザー";
   const dateLabel = formatDateJp(row.attended_on);
   const categoryLabel = CATEGORY_LABELS[ev.category];
   const accent = CATEGORY_COLOR[parentOf(ev.category as EventCategory)];
@@ -127,7 +127,7 @@ export async function GET(
         >
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
             <span style={{ fontSize: 44, fontWeight: 800, letterSpacing: -1 }}>
-              Cue
+              Que
             </span>
             <span style={{ fontSize: 18, color: "#a3a3a3" }}>
               行きたいが、見つかる。

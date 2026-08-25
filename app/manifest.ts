@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Cue — 行きたいが、見つかる。",
-    short_name: "Cue",
+    name: "Que — 行きたいが、見つかる。",
+    short_name: "Que",
     description:
       "アート・音楽・舞台・祭り・季節のイベントを、まとめてチェック。気になる予定を見つけて、保存できるイベント発見アプリ。",
     start_url: "/",

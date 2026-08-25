@@ -49,13 +49,13 @@ const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{6}$`);
 
 const WELCOME =
-  "Cue の友だち追加ありがとうございます！🎉\n" +
-  "東京・関東のイベントが見つかるアプリ「Cue」です。\n\n" +
+  "Que の友だち追加ありがとうございます！🎉\n" +
+  "東京・関東のイベントが見つかるアプリ「Que」です。\n\n" +
   "このトークでできること👇\n" +
   "・「イベント」→ 近々の開催をお届け\n" +
   "・「使い方」→ アプリの説明\n\n" +
   "さらに、興味・エリアに合わせた通知を LINE で受け取るには連携が必要です。" +
-  "Cue アプリの「通知設定」で連携コードを発行して、ここに送ってください！\n\n" +
+  "Que アプリの「通知設定」で連携コードを発行して、ここに送ってください！\n\n" +
   SITE.url;
 
 // ---- 意図判定 ----------------------------------------------------------
@@ -628,7 +628,7 @@ async function buildEventMessages(
 }
 
 const HELP_TEXT =
-  "Cue は東京・関東のイベントが見つかるアプリです！🎪\n\n" +
+  "Que は東京・関東のイベントが見つかるアプリです！🎪\n\n" +
   "🔍 ジャンル・エリアで検索\n" +
   "📍 興味と現在地に合わせたおすすめ通知\n" +
   "🎟️ チケット発売・締切のリマインド\n" +
@@ -666,7 +666,7 @@ const KEYWORD_TEXT =
   "「使い方」→ アプリの説明";
 
 const GREETING_TEXT =
-  "こんにちは！Cue です🐾\n" +
+  "こんにちは！Que です🐾\n" +
   "「イベント」で近々の開催、「使い方」でアプリの説明をご案内します。";
 
 const FALLBACK_TEXT =
@@ -745,7 +745,7 @@ async function handleMessage(ev: LineEvent) {
           text:
             "連携が完了しました！✅\n" +
             "これからは興味・エリアに合ったイベントを LINE でお届けします。\n" +
-            "通知はいつでも Cue アプリの設定でオフにできます。",
+            "通知はいつでも Que アプリの設定でオフにできます。",
         },
       ]);
       return;
@@ -754,7 +754,7 @@ async function handleMessage(ev: LineEvent) {
       await replyLineMessage(ev.replyToken, [
         {
           type: "text",
-          text: "コードが無効か期限切れです。Cue アプリでもう一度発行してください。",
+          text: "コードが無効か期限切れです。Que アプリでもう一度発行してください。",
         },
       ]);
       return;

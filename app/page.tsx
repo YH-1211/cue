@@ -172,7 +172,7 @@ export default async function Home() {
           {/* 左: ブランド + コピー + CTA */}
           <div className="flex flex-col items-start gap-4">
             <h1 className="bg-gradient-to-br from-foreground from-30% to-primary bg-clip-text text-6xl font-bold tracking-tight text-transparent sm:text-7xl">
-              Cue
+              Que
             </h1>
             <p className="max-w-md text-lg font-medium text-foreground sm:text-xl">
               東京と関東のイベント情報を、まとめてチェック。
@@ -266,7 +266,7 @@ export default async function Home() {
         </section>
       )}
 
-      {/* これからのCue */}
+      {/* これからのQue */}
       <section>
         <div className="mb-4 flex items-end justify-between">
           <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight sm:text-xl">
@@ -274,7 +274,7 @@ export default async function Home() {
               aria-hidden
               className="h-5 w-1 shrink-0 rounded-full bg-primary"
             />
-            これからのCue
+            これからのQue
           </h2>
           <Link
             href="/events"

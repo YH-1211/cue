@@ -240,7 +240,7 @@ export async function sendTestNotification() {
   const admin = createAdminClient();
   try {
     const count = await notifyUser(admin, user.id, {
-      title: "Cue テスト通知",
+      title: "Que テスト通知",
       body: "通知が届きました。設定はこのまま有効です。",
       url: "/me/notifications",
       tag: "test",
