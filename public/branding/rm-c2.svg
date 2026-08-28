@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2500 1686">
+  <rect width="2500" height="1686" fill="#0A0A0F"/>
+
+  <g stroke="#22222A" stroke-width="2">
+    <line x1="833" y1="0" x2="833" y2="1686"/>
+    <line x1="1667" y1="0" x2="1667" y2="1686"/>
+    <line x1="0" y1="843" x2="2500" y2="843"/>
+  </g>
+
+  <!-- ロゴセル (左上) -->
+  <text x="417" y="450" font-family="'Helvetica Neue','Arial',system-ui,sans-serif" font-size="190" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-6">Que</text>
+  <circle cx="612" cy="302" r="22" fill="#F97316"/>
+  <text x="417" y="540" font-family="'Hiragino Sans',system-ui,sans-serif" font-size="42" font-weight="500" fill="#8A8A94" text-anchor="middle" letter-spacing="4">イベントを見つけよう</text>
+
+  <g fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 今週末: カレンダー -->
+    <rect x="1186" y="288" width="128" height="110" rx="16"/>
+    <line x1="1216" y1="266" x2="1216" y2="298"/>
+    <line x1="1284" y1="266" x2="1284" y2="298"/>
+    <line x1="1186" y1="330" x2="1314" y2="330"/>
+    <rect x="1262" y="352" width="26" height="26" rx="5" fill="#F97316" stroke="none"/>
+
+    <!-- さがす: 虫めがね -->
+    <circle cx="2065" cy="318" r="50"/>
+    <line x1="2101" y1="354" x2="2140" y2="393" stroke="#F97316"/>
+
+    <!-- マイページ: 人 -->
+    <circle cx="1250" cy="1128" r="38"/>
+    <path d="M1188,1238 C1188,1197 1215,1178 1250,1178 C1285,1178 1312,1197 1312,1238"/>
+
+    <!-- 通知設定: ベル -->
+    <path d="M2083,1100 C2046,1100 2029,1131 2029,1170 C2029,1199 2017,1219 2006,1231 L2160,1231 C2149,1219 2137,1199 2137,1170 C2137,1131 2120,1100 2083,1100 Z"/>
+    <path d="M2064,1231 C2064,1249 2072,1259 2083,1259 C2094,1259 2102,1249 2102,1231"/>
+    <circle cx="2130" cy="1104" r="22" fill="#F97316" stroke="none"/>
+  </g>
+
+  <!-- おすすめ: きらめき -->
+  <path d="M417,1092 C426,1145 442,1161 495,1170 C442,1179 426,1195 417,1248 C408,1195 392,1179 339,1170 C392,1161 408,1145 417,1092 Z" fill="#FFFFFF"/>
+  <path d="M485,1088 C489,1108 497,1116 517,1120 C497,1124 489,1132 485,1152 C481,1132 473,1124 453,1120 C473,1116 481,1108 485,1088 Z" fill="#F97316"/>
+
+  <!-- ラベル -->
+  <g font-family="'Hiragino Sans','Helvetica Neue',system-ui,sans-serif" font-weight="600" fill="#FFFFFF" text-anchor="middle" font-size="64">
+    <text x="1250" y="530">今週末</text>
+    <text x="2083" y="530">さがす</text>
+    <text x="417"  y="1390">おすすめ</text>
+    <text x="1250" y="1390">マイページ</text>
+    <text x="2083" y="1390">通知設定</text>
+  </g>
+</svg>

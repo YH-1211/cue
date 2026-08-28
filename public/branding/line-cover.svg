@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 878">
+  <defs>
+    <radialGradient id="cbg" cx="50%" cy="38%" r="80%">
+      <stop offset="0%" stop-color="#181820"/>
+      <stop offset="100%" stop-color="#0A0A0F"/>
+    </radialGradient>
+  </defs>
+  <rect width="1080" height="878" fill="url(#cbg)"/>
+  <!-- ワードマーク Que + オレンジのドット -->
+  <text x="540" y="430" font-family="'Helvetica Neue', 'Arial', system-ui, sans-serif" font-size="240" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-10">Que</text>
+  <circle cx="795" cy="238" r="26" fill="#F97316"/>
+  <!-- タグライン -->
+  <text x="540" y="540" font-family="'Hiragino Sans', 'Helvetica Neue', system-ui, sans-serif" font-size="46" font-weight="600" fill="#B8B8C0" text-anchor="middle" letter-spacing="6">東京・関東のイベントを、見つけよう。</text>
+</svg>
