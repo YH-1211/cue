@@ -306,6 +306,8 @@ type ExistingFlag = {
   event_id: string;
   reason: FlagReason;
   status: "open" | "resolved" | "ignored";
+  ignore_until: string | null;
+  ignored_detail: string | null;
 };
 
 async function syncFlags(
@@ -317,7 +319,7 @@ async function syncFlags(
   // 現在の全フラグを取得 (件数は多くないので全件)
   const { data: existingData } = await admin
     .from("event_review_flags")
-    .select("id, event_id, reason, status");
+    .select("id, event_id, reason, status, ignore_until, ignored_detail");
   const existing = (existingData ?? []) as ExistingFlag[];
   const byKey = new Map<string, ExistingFlag>();
   for (const f of existing) byKey.set(`${f.event_id}:${f.reason}`, f);
@@ -344,11 +346,31 @@ async function syncFlags(
       });
       newFlags += 1;
     } else if (prev.status === "ignored") {
-      // 管理者が「無視」にしたものは触らない (last_seen だけ更新)
-      await admin
-        .from("event_review_flags")
-        .update({ last_seen_at: nowIso, detail: d.detail, severity: d.severity })
-        .eq("id", prev.id);
+      // 「無視」中のフラグは基本そっとしておくが、以下のときは open に戻して再確認を促す:
+      //   - ignore_until を過ぎた (期限切れ。サイト復旧 or 本当に閉幕した可能性)
+      //   - 無視した時点と detail が変わった (403 -> 404 等、状況が変わった)
+      const expired = prev.ignore_until != null && Date.parse(prev.ignore_until) <= Date.now();
+      const changed = prev.ignored_detail != null && prev.ignored_detail !== d.detail;
+      if (expired || changed) {
+        await admin
+          .from("event_review_flags")
+          .update({
+            status: "open",
+            detail: d.detail,
+            severity: d.severity,
+            last_seen_at: nowIso,
+            resolved_at: null,
+            ignore_until: null,
+            ignored_detail: null,
+          })
+          .eq("id", prev.id);
+        reopenedFlags += 1;
+      } else {
+        await admin
+          .from("event_review_flags")
+          .update({ last_seen_at: nowIso, detail: d.detail, severity: d.severity })
+          .eq("id", prev.id);
+      }
     } else if (prev.status === "resolved") {
       // 一度解決したのに再検出 → 再オープン
       await admin
@@ -371,16 +393,25 @@ async function syncFlags(
     }
   }
 
-  // open だが今回検出されなかった = 解消したとみなして自動 resolved
+  // 今回検出されなかった = 解消したとみなして自動 resolved。
+  // ignored も対象に含める (公式サイトが復旧して検出されなくなったのに
+  // 「無視」のまま残り続けるのを防ぐ)。
   let resolvedFlags = 0;
   const toResolve = existing.filter(
-    (f) => f.status === "open" && !detectedKeys.has(`${f.event_id}:${f.reason}`)
+    (f) =>
+      (f.status === "open" || f.status === "ignored") &&
+      !detectedKeys.has(`${f.event_id}:${f.reason}`)
   );
   if (toResolve.length > 0) {
     const ids = toResolve.map((f) => f.id);
     await admin
       .from("event_review_flags")
-      .update({ status: "resolved", resolved_at: nowIso })
+      .update({
+        status: "resolved",
+        resolved_at: nowIso,
+        ignore_until: null,
+        ignored_detail: null,
+      })
       .in("id", ids);
     resolvedFlags = toResolve.length;
   }
