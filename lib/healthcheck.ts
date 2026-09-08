@@ -1,7 +1,7 @@
 // 日次ヘルスチェック: 未来イベントの official_url を叩き、
 //   - dead_link:     公式URLが 404 / 5xx / タイムアウト
 //   - date_mismatch: 公式ページの JSON-LD (schema.org Event.startDate) と DB の日付が食い違う
-//   - stale_soon:    開催が近い (14日以内) のに更新が古い (30日以上)
+//   - stale_soon:    開催が近い (14日以内) のに最終確認が古い (30日以上)
 //   - date_tbd:      日程未定 (starts_at が null)
 // を検出し event_review_flags テーブルへ同期する。
 //
@@ -17,9 +17,9 @@ const USER_AGENT = "CueBot/1.0 (+https://cue-taupe-eight.vercel.app)";
 // official_url を fetch して照合する対象の上限 (開催が近い順)。
 // 遠い未来 (数百日先) は情報が固まっていないことが多く、近づいたら自然に対象化される。
 const LINK_CHECK_HORIZON_DAYS = 120;
-// 開催が近い (この日数以内) のに更新が古いと stale_soon
+// 開催が近い (この日数以内) のに最終確認が古いと stale_soon
 const NEAR_TERM_DAYS = 14;
-// updated_at がこの日数以上前なら「古い」
+// 最終確認 (verified_at、無ければ updated_at) がこの日数以上前なら「古い」
 const STALE_DAYS = 30;
 // URL fetch の並列数とタイムアウト
 const FETCH_CONCURRENCY = 10;
@@ -50,6 +50,7 @@ type EventRow = {
   effective_end: string | null;
   official_url: string | null;
   updated_at: string;
+  verified_at: string | null;
 };
 
 export type HealthcheckSummary = {
@@ -194,7 +195,9 @@ export async function runHealthcheck(admin: SupabaseClient): Promise<Healthcheck
   // 対象は「これからのイベント」(effective_end >= now)。過去分は照合の意味が薄い。
   const { data, error } = await admin
     .from("events")
-    .select("id, title, starts_at, ends_at, effective_end, official_url, updated_at")
+    .select(
+      "id, title, starts_at, ends_at, effective_end, official_url, updated_at, verified_at"
+    )
     .or(`effective_end.gte.${nowIso},effective_end.is.null`)
     .order("starts_at", { ascending: true, nullsFirst: false });
 
@@ -262,22 +265,26 @@ export async function runHealthcheck(admin: SupabaseClient): Promise<Healthcheck
     }
   });
 
-  // 3) 近日開催なのに更新が古い (stale_soon)
+  // 3) 近日開催なのに最終確認が古い (stale_soon)
+  // 「最後に見直した日」は verified_at。まだ一度も確認していないイベントは
+  // updated_at (= 登録/編集した日) を代用する。
   for (const ev of events) {
     if (!ev.starts_at) continue;
     const startMs = Date.parse(ev.starts_at);
     if (Number.isNaN(startMs)) continue;
     const daysUntil = (startMs - now) / DAY_MS;
     if (daysUntil < 0 || daysUntil > NEAR_TERM_DAYS) continue;
-    const updatedMs = Date.parse(ev.updated_at);
-    if (Number.isNaN(updatedMs)) continue;
-    const daysStale = (now - updatedMs) / DAY_MS;
+    const checkedIso = ev.verified_at ?? ev.updated_at;
+    const checkedMs = Date.parse(checkedIso);
+    if (Number.isNaN(checkedMs)) continue;
+    const daysStale = (now - checkedMs) / DAY_MS;
     if (daysStale >= STALE_DAYS) {
+      const label = ev.verified_at ? "最終確認" : "最終更新";
       detected.push({
         eventId: ev.id,
         reason: "stale_soon",
         severity: "warning",
-        detail: `開催まで${Math.round(daysUntil)}日 / 最終更新から${Math.round(daysStale)}日経過`,
+        detail: `開催まで${Math.round(daysUntil)}日 / ${label}から${Math.round(daysStale)}日経過`,
         detectedUrl: ev.official_url,
       });
     }
