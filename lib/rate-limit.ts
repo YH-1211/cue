@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { headers } from "next/headers";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
@@ -36,10 +37,14 @@ function getLimiter(
 }
 
 // Vercel などのプロキシ越しでも実クライアント IP を推定する。
-function clientIp(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
+function ipFromHeaders(h: Headers): string {
+  const forwarded = h.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0]!.trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
+  return h.get("x-real-ip") ?? "unknown";
+}
+
+function clientIp(req: NextRequest): string {
+  return ipFromHeaders(req.headers);
 }
 
 type RateLimitOptions = {
@@ -79,3 +84,25 @@ export async function enforceRateLimit(
     }
   );
 }
+
+// サーバーアクション用。Route Handler と違い NextRequest / NextResponse を
+// 扱えないので、headers() から呼び出し元を特定して可否だけを返す。
+// 上限内 (または Upstash 未設定) なら true、超過なら false。
+//
+// subject: 集計の単位。ログイン必須のアクションはユーザー ID を渡す。
+//   IP だと同じ回線 (社内 LAN・携帯キャリアの NAT) の他人を巻き込むため。
+//   未指定ならクライアント IP にフォールバックする。
+export async function checkActionRateLimit(
+  opts: RateLimitOptions & { subject?: string }
+): Promise<boolean> {
+  const limiter = getLimiter(opts.name, opts.limit, opts.windowSec);
+  if (!limiter) return true;
+
+  const subject = opts.subject ?? ipFromHeaders(await headers());
+  const { success } = await limiter.limit(`${opts.name}:${subject}`);
+  return success;
+}
+
+// 制限超過時にユーザーへ見せる共通文言。
+export const RATE_LIMIT_MESSAGE =
+  "短時間の操作が多すぎます。しばらく時間をおいてから再度お試しください。";

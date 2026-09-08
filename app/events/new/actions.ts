@@ -7,6 +7,7 @@ import { isEventCategory } from "@/lib/events";
 import { jstLocalToIso } from "@/lib/datetime";
 import { extractEventFromUrl } from "@/lib/extract-event";
 import { isBanned } from "@/lib/moderation";
+import { checkActionRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import type { FetchUrlResult } from "@/components/events/event-form";
 
 // URL を1本受け取り、ページからイベント情報を抽出してフォーム自動入力用に返す。
@@ -19,6 +20,17 @@ export async function fetchEventFromUrl(url: string): Promise<FetchUrlResult> {
   if (!user) {
     return { status: "error", message: "ログインが必要です。" };
   }
+  // サーバーが外部サイトへ取得しに行く処理なので、連打による踏み台化を防ぐ。
+  const allowed = await checkActionRateLimit({
+    name: "event-fetch-url",
+    limit: 20,
+    windowSec: 3600,
+    subject: user.id,
+  });
+  if (!allowed) {
+    return { status: "error", message: RATE_LIMIT_MESSAGE };
+  }
+
   const trimmed = url.trim();
   if (!trimmed) {
     return { status: "error", message: "URL を入力してください。" };
@@ -62,6 +74,17 @@ export async function submitEvent(
       status: "error",
       message: "アカウントが制限されているため投稿できません。",
     };
+  }
+
+  // 承認待ちが大量生成されると運営が回らなくなるため、投稿数自体を抑える。
+  const allowed = await checkActionRateLimit({
+    name: "event-submit",
+    limit: 10,
+    windowSec: 3600,
+    subject: user.id,
+  });
+  if (!allowed) {
+    return { status: "error", message: RATE_LIMIT_MESSAGE };
   }
 
   const title = readString(formData, "title");

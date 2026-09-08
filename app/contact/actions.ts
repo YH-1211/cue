@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { sendPushToAdmins } from "@/lib/web-push";
+import { checkActionRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 export type ContactState =
   | { status: "idle" }
@@ -42,6 +43,16 @@ export async function submitContact(
   const body = readString(formData, "body");
 
   const values = { name, email, category, body };
+
+  // 未ログインでも送れる唯一の書き込み口なので IP 単位で厳しめに制限する。
+  const allowed = await checkActionRateLimit({
+    name: "contact",
+    limit: 5,
+    windowSec: 600,
+  });
+  if (!allowed) {
+    return { status: "error", message: RATE_LIMIT_MESSAGE, values };
+  }
 
   if (!name) {
     return { status: "error", message: "お名前を入力してください。", values };

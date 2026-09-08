@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
+import { checkActionRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 
 export type ReportState =
   | { status: "idle" }
@@ -43,6 +44,17 @@ export async function submitReport(
   } = await supabase.auth.getUser();
   if (!user) {
     redirect(`/login?next=/events/${eventId}/report`);
+  }
+
+  // 1 枚 5MB × 6 枚をストレージへ書き込めるため、回数を絞っておく。
+  const allowed = await checkActionRateLimit({
+    name: "event-report",
+    limit: 20,
+    windowSec: 3600,
+    subject: user.id,
+  });
+  if (!allowed) {
+    return { status: "error", message: RATE_LIMIT_MESSAGE };
   }
 
   // イベント存在 + 公開チェック
