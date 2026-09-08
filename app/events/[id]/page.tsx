@@ -186,6 +186,8 @@ export async function generateMetadata({
   return {
     title,
     description,
+    // 正規URL。トラッキングパラメータ付きのURLで拾われても評価が分散しないようにする。
+    alternates: { canonical: `/events/${id}` },
     openGraph: {
       type: "article",
       title,
