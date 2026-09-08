@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { SaveButton } from "./save-button";
 import { TrackView, TrackedLink, LineShareButton } from "./track";
 import { AdminDeleteButton } from "./admin-delete-button";
+import { AdminAffiliateForm } from "./admin-affiliate-form";
 import { BackButton } from "@/components/back-button";
 import { isAdmin } from "@/lib/admin";
 import {
@@ -74,6 +75,7 @@ type EventDetail = {
   has_food_stalls: boolean | null;
   official_url: string;
   ticket_url: string | null;
+  affiliate_url: string | null;
   ticket_sale_starts_at: string | null;
   ticket_sale_ends_at: string | null;
   is_free: boolean | null;
@@ -214,7 +216,7 @@ export default async function EventDetailPage({
       `
         id, title, description, starts_at, ends_at,
         venue_name, address, area, category, cover_image_url, has_food_stalls,
-        official_url, ticket_url, ticket_sale_starts_at, ticket_sale_ends_at,
+        official_url, ticket_url, affiliate_url, ticket_sale_starts_at, ticket_sale_ends_at,
         is_free, is_permanent, lat, lng, approved, submitted_by,
         event_tags ( tags ( slug, name ) )
       `
@@ -317,6 +319,11 @@ export default async function EventDetailPage({
   const ticketSaleEnded =
     event.ticket_sale_ends_at != null &&
     new Date(event.ticket_sale_ends_at).getTime() < nowMs;
+
+  // チケットボタンの遷移先。アフィリエイトリンクが登録されていればそちらを優先する。
+  // 広告リンクを使う場合は景品表示法(ステマ規制)対応として広告表記を併記する。
+  const ticketHref = event.affiliate_url || event.ticket_url;
+  const isAffiliate = !!event.affiliate_url;
 
   // 関連イベント (同カテゴリ + 同エリア優先 / 未来 / 自身を除く)
   type RelatedRow = {
@@ -572,7 +579,7 @@ export default async function EventDetailPage({
             公式サイトへ
           </TrackedLink>
         )}
-        {event.ticket_url &&
+        {ticketHref &&
           (ticketSaleEnded || isExpired ? (
             <span
               className={buttonVariants({ size: "lg", variant: "outline" })}
@@ -585,10 +592,15 @@ export default async function EventDetailPage({
             <TrackedLink
               eventId={event.id}
               kind="ticket_click"
-              href={event.ticket_url}
+              href={ticketHref}
               className={buttonVariants({ size: "lg", variant: "outline" })}
             >
               チケットを購入
+              {isAffiliate && (
+                <span className="ml-2 rounded border border-current px-1 text-[10px] font-semibold leading-4 opacity-70">
+                  PR
+                </span>
+              )}
             </TrackedLink>
           ))}
         {!isExpired && (
@@ -620,6 +632,16 @@ export default async function EventDetailPage({
         )}
         {admin && <AdminDeleteButton eventId={event.id} title={event.title} />}
       </div>
+
+      {isAffiliate && !ticketSaleEnded && !isExpired && (
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          ※「チケットを購入」は広告リンクです。リンクを経由して購入された場合、当サイトに収益が発生することがあります。掲載の有無や表示順がこれによって変わることはありません。
+        </p>
+      )}
+
+      {admin && (
+        <AdminAffiliateForm eventId={event.id} current={event.affiliate_url} />
+      )}
 
       {related.length > 0 && (
         <>
