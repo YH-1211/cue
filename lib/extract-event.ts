@@ -7,7 +7,7 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { inferCategory, type EventCategory } from "@/lib/events";
 
-const USER_AGENT = "CueBot/1.0 (+https://cue-taupe-eight.vercel.app)";
+const USER_AGENT = "CueBot/1.0 (+https://queevent.com)";
 
 export type ExtractedEvent = {
   title: string | null;

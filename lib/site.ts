@@ -3,7 +3,7 @@
 export const SITE = {
   name: "Que",
   // 本番URL（OGP・絶対URL生成・metadataBase に使う）
-  url: "https://cue-taupe-eight.vercel.app",
+  url: "https://queevent.com",
   // シェア時のキャッチコピー
   tagline: "行きたいが、見つかる。",
   // 運営者名（屋号・団体名）

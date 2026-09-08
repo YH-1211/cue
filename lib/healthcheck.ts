@@ -12,7 +12,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { jstParts } from "@/lib/datetime";
 
-const USER_AGENT = "CueBot/1.0 (+https://cue-taupe-eight.vercel.app)";
+const USER_AGENT = "CueBot/1.0 (+https://queevent.com)";
 
 // official_url を fetch して照合する対象の上限 (開催が近い順)。
 // 遠い未来 (数百日先) は情報が固まっていないことが多く、近づいたら自然に対象化される。

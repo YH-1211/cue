@@ -26,7 +26,7 @@ export type IngestSource = {
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-const USER_AGENT = "CueBot/1.0 (+https://cue-taupe-eight.vercel.app)";
+const USER_AGENT = "CueBot/1.0 (+https://queevent.com)";
 
 export async function ingestSource(admin: Admin, src: IngestSource): Promise<number> {
   switch (src.kind) {

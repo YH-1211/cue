@@ -1008,7 +1008,7 @@ async function sendLineWeeklyBroadcast(
   if (!process.env.LINE_CHANNEL_ACCESS_TOKEN) return 0;
 
   const origin =
-    process.env.NEXT_PUBLIC_SITE_URL || "https://cue-taupe-eight.vercel.app";
+    process.env.NEXT_PUBLIC_SITE_URL || "https://queevent.com";
   const now = new Date();
   const jst = jstParts(now);
   // 今週 = 配信当日 (日曜) 0:00 JST 〜 翌週日曜 0:00 JST の直前

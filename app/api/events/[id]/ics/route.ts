@@ -79,6 +79,8 @@ export async function GET(
   const description = [data.description ?? "", data.official_url]
     .filter(Boolean)
     .join("\n\n");
+  // UID はカレンダー側で同一予定を識別する不変キー。ドメインを変えると
+  // 再取り込み時に別予定として重複登録されるため、独自ドメイン移行後も据え置く。
   const uid = `${data.id}@cue-taupe-eight.vercel.app`;
 
   const lines = [

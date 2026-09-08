@@ -18,7 +18,7 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
 const APPLY = process.argv.includes("--apply");
-const USER_AGENT = "CueBot/1.0 (+https://cue-taupe-eight.vercel.app)";
+const USER_AGENT = "CueBot/1.0 (+https://queevent.com)";
 
 // ---- .env.local 読み込み (最小パーサ) ----
 function loadEnv() {

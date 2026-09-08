@@ -4,7 +4,7 @@ import type { PushPayload } from "@/lib/web-push";
 
 const LINE_API = "https://api.line.me/v2/bot";
 const PUBLIC_ORIGIN =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://cue-taupe-eight.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://queevent.com";
 
 function channelSecret(): string {
   const s = process.env.LINE_CHANNEL_SECRET;

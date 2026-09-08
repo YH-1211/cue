@@ -26,7 +26,7 @@ jobs:
         run: |
           code=$(curl -sS -o /tmp/resp.txt -w "%{http_code}" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            "https://cue-taupe-eight.vercel.app/api/cron/notify")
+            "https://queevent.com/api/cron/notify")
           echo "HTTP ${code}"
           cat /tmp/resp.txt
           # 2xx 以外は失敗扱いにする
