@@ -60,8 +60,12 @@ export const metadata: Metadata = {
   // Google Search Console の所有権確認。
   // Vercel 環境変数 GOOGLE_SITE_VERIFICATION にコードを入れると
   // <meta name="google-site-verification"> が出力される (未設定なら何も出ない)。
+  // 確認コードはプロパティ (ドメイン) ごとに別なので、カンマ区切りで複数指定でき
+  // るようにしてある。新旧ドメインの両方の確認状態を同時に保つために必要。
   verification: {
-    google: process.env.GOOGLE_SITE_VERIFICATION,
+    google: process.env.GOOGLE_SITE_VERIFICATION?.split(",")
+      .map((code) => code.trim())
+      .filter(Boolean),
   },
 };
 
