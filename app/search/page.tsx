@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EventCover } from "@/components/event-cover";
@@ -50,7 +51,11 @@ type SearchParams = {
   free?: string;
   evening?: string;
   food?: string;
+  show?: string;
 };
+
+// 1回に表示する件数と、「もっと見る」で増える単位
+const PAGE_SIZE = 50;
 
 type Facets = {
   categories: Record<string, number>;
@@ -114,6 +119,22 @@ export default async function SearchPage({
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // 表示件数。URL から受け取るので上限を設けて過大なクエリを防ぐ
+  const parsedShow = Number.parseInt(sp.show ?? "", 10);
+  const show = Number.isFinite(parsedShow)
+    ? Math.min(Math.max(parsedShow, PAGE_SIZE), 500)
+    : PAGE_SIZE;
+
+  // 「もっと見る」の href。現在の検索条件を保ったまま表示件数だけ増やす
+  const moreParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(sp)) {
+    if (key !== "show" && typeof value === "string" && value) {
+      moreParams.set(key, value);
+    }
+  }
+  moreParams.set("show", String(show + PAGE_SIZE));
+  const moreHref = `/search?${moreParams.toString()}`;
+
   const hasFilter =
     !!q ||
     !!datePreset ||
@@ -155,6 +176,7 @@ export default async function SearchPage({
   }
 
   let events: EventRow[] = [];
+  let hasMore = false;
   let errorMessage: string | null = null;
   let facets: Facets = { categories: {}, areas: {} };
 
@@ -186,7 +208,8 @@ export default async function SearchPage({
         p_evening_only: eveningOnly,
         p_food_stalls: foodStallsOnly,
         p_sort: rpcSort,
-        p_limit: 50,
+        // 1件多く取って「次があるか」を判定する
+        p_limit: show + 1,
       }),
       supabase.rpc("search_event_facets", {
         p_q: q || null,
@@ -198,7 +221,9 @@ export default async function SearchPage({
       }),
     ]);
 
-    events = (data ?? []) as EventRow[];
+    const fetched = (data ?? []) as EventRow[];
+    hasMore = fetched.length > show;
+    events = hasMore ? fetched.slice(0, show) : fetched;
     if (error) console.error("[search] query failed:", error);
     errorMessage = error?.message ?? null;
     if (facetData) facets = facetData as Facets;
@@ -262,6 +287,8 @@ export default async function SearchPage({
           events={events}
           facets={facets}
           loggedIn={loggedIn}
+          hasMore={hasMore}
+          moreHref={moreHref}
         />
       )}
     </div>
@@ -274,12 +301,16 @@ function SearchListView({
   events,
   facets,
   loggedIn,
+  hasMore,
+  moreHref,
 }: {
   hasFilter: boolean;
   errorMessage: string | null;
   events: EventRow[];
   facets: Facets;
   loggedIn: boolean;
+  hasMore: boolean;
+  moreHref: string;
 }) {
   return (
     <>
@@ -316,7 +347,7 @@ function SearchListView({
       ) : (
         <>
           <p className="mb-3 text-xs text-muted-foreground">
-            {events.length} 件{events.length >= 50 && " (上限)"}
+            {events.length} 件{hasMore && " 以上"}
           </p>
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {events.map((event) => (
@@ -375,6 +406,17 @@ function SearchListView({
               </li>
             ))}
           </ul>
+          {hasMore && (
+            <div className="mt-8 flex justify-center">
+              <Link
+                href={moreHref}
+                scroll={false}
+                className={buttonVariants({ variant: "outline" })}
+              >
+                もっと見る
+              </Link>
+            </div>
+          )}
         </>
       )}
     </>

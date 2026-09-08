@@ -181,6 +181,7 @@ export function EventsFilters({
     if (newFree) sp.set("free", "1");
     if (newEvening) sp.set("evening", "1");
     if (newFood) sp.set("food", "1");
+    // 条件を変えたら表示件数は初期値に戻す (show は意図的に引き継がない)
     const qs = sp.toString();
     start(() => router.push(qs ? `${basePath}?${qs}` : basePath));
   }

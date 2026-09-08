@@ -36,18 +36,31 @@ type EventRow = {
   is_permanent: boolean | null;
 };
 
+// 1回に表示する件数と、「もっと見る」で増える単位
+const PAGE_SIZE = 50;
+
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; area?: string }>;
+  searchParams: Promise<{ category?: string; area?: string; show?: string }>;
 }) {
-  const { category: categoryParam, area: areaParam } = await searchParams;
+  const {
+    category: categoryParam,
+    area: areaParam,
+    show: showParam,
+  } = await searchParams;
   const activeCategory =
     categoryParam && isEventCategory(categoryParam) ? categoryParam : null;
   const activeParent = activeCategory ? parentOf(activeCategory) : null;
   const activeArea = areaParam && areaParam.length > 0 ? areaParam : null;
 
-  // カテゴリピルの href にエリアを引き継ぐ
+  // 表示件数。URL から受け取るので上限を設けて過大なクエリを防ぐ
+  const parsedShow = Number.parseInt(showParam ?? "", 10);
+  const show = Number.isFinite(parsedShow)
+    ? Math.min(Math.max(parsedShow, PAGE_SIZE), 500)
+    : PAGE_SIZE;
+
+  // カテゴリピルの href にエリアを引き継ぐ (件数はリセットする)
   const catHref = (cat?: string) => {
     const sp = new URLSearchParams();
     if (cat) sp.set("category", cat);
@@ -56,17 +69,27 @@ export default async function EventsPage({
     return qs ? `/events?${qs}` : "/events";
   };
 
+  // 「もっと見る」の href。現在の絞り込みを保ったまま表示件数だけ増やす
+  const moreHref = () => {
+    const sp = new URLSearchParams();
+    if (activeCategory) sp.set("category", activeCategory);
+    if (activeArea) sp.set("area", activeArea);
+    sp.set("show", String(show + PAGE_SIZE));
+    return `/events?${sp.toString()}`;
+  };
+
   const supabase = await createClient();
 
   let query = supabase
     .from("events")
     .select(
       "id, title, starts_at, ends_at, venue_name, area, category, cover_image_url, has_food_stalls, is_permanent",
+      { count: "exact" },
     )
     .eq("approved", true)
     .gte("effective_end", startOfTodayJstIso())
     .order("starts_at", { ascending: true })
-    .limit(50);
+    .limit(show);
 
   if (activeCategory) {
     if (isParentCategory(activeCategory)) {
@@ -102,13 +125,15 @@ export default async function EventsPage({
   }
 
   // 2つのクエリは互いに独立しているので並列で取得する
-  const [{ data, error }, { data: tbdData }] = await Promise.all([
+  const [{ data, error, count }, { data: tbdData }] = await Promise.all([
     query,
     tbdQuery,
   ]);
   if (error) console.error("[events] query failed:", error);
   const events = (data ?? []) as EventRow[];
   const tbdEvents = (tbdData ?? []) as EventRow[];
+  const totalCount = count ?? events.length;
+  const hasMore = events.length < totalCount;
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6 sm:py-12">
@@ -204,11 +229,27 @@ export default async function EventsPage({
       ) : (
         <>
           {events.length > 0 && (
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-              {events.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </ul>
+            <>
+              <p className="mb-3 text-xs text-muted-foreground">
+                {totalCount} 件中 {events.length} 件を表示
+              </p>
+              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+                {events.map((event) => (
+                  <EventCard key={event.id} event={event} />
+                ))}
+              </ul>
+              {hasMore && (
+                <div className="mt-8 flex justify-center">
+                  <Link
+                    href={moreHref()}
+                    scroll={false}
+                    className={buttonVariants({ variant: "outline" })}
+                  >
+                    もっと見る (残り {totalCount - events.length} 件)
+                  </Link>
+                </div>
+              )}
+            </>
           )}
 
           {tbdEvents.length > 0 && (
