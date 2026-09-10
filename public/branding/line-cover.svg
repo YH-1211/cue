@@ -7,9 +7,9 @@
   </defs>
   <rect width="1080" height="878" fill="url(#cbg)"/>
   <!-- ワードマーク Que + オレンジのドット -->
-  <text x="540" y="430" font-family="'Helvetica Neue', 'Arial', system-ui, sans-serif" font-size="240" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-10">Que</text>
-  <!-- ドット位置は logo-que.svg と同じ比率ルール (右端+0.10H / 上端+0.00H / r=0.12H, H=189) -->
-  <circle cx="774" cy="255" r="22.7" fill="#F97316"/>
+  <text x="540" y="430" font-family="'SF Pro Display', system-ui, sans-serif" font-size="240" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-10">Que</text>
+  <!-- ドット位置は logo-que.svg と同じ比率ルール (右端+0.10H / 上端+0.00H / r=0.12H, H=186) -->
+  <circle cx="785.6" cy="257" r="22.3" fill="#F97316"/>
   <!-- タグライン -->
   <text x="540" y="540" font-family="'Hiragino Sans', 'Helvetica Neue', system-ui, sans-serif" font-size="46" font-weight="600" fill="#B8B8C0" text-anchor="middle" letter-spacing="6">関東のイベントを、見つけよう。</text>
 </svg>
