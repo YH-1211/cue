@@ -1,0 +1,11 @@
+<!--
+  Que ロゴ / Q 一文字版（アイコン用）
+  オレンジのドットは文字の高さ H に対する比率で配置している:
+    cx = 文字の右端 + 0.075H / cy = 文字の上端 + 0.179H / r = 0.107H
+  文字 bbox: x 118〜371 / y 100〜380 (H=280)
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#0A0A0F"/>
+  <text x="240" y="360" font-family="'SF Pro Display', system-ui, sans-serif" font-size="360" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-14">Q</text>
+  <circle cx="392" cy="150" r="30" fill="#F97316"/>
+</svg>

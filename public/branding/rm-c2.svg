@@ -9,7 +9,8 @@
 
   <!-- ロゴセル (左上) -->
   <text x="417" y="450" font-family="'Helvetica Neue','Arial',system-ui,sans-serif" font-size="190" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-6">Que</text>
-  <circle cx="612" cy="302" r="22" fill="#F97316"/>
+  <!-- ドット位置は logo-que.svg と同じ比率ルール (右端+0.10H / 上端+0.00H / r=0.12H, H=150) -->
+  <circle cx="604" cy="311" r="18" fill="#F97316"/>
   <text x="417" y="540" font-family="'Hiragino Sans',system-ui,sans-serif" font-size="42" font-weight="500" fill="#8A8A94" text-anchor="middle" letter-spacing="4">イベントを見つけよう</text>
 
   <g fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">

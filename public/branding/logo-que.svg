@@ -1,0 +1,11 @@
+<!--
+  Que ロゴ / ワードマーク版（カバー・リッチメニュー等の横長用）
+  オレンジのドットは文字の高さ H に対する比率で配置している:
+    cx = 文字の右端 + 0.10H / cy = 文字の上端 + 0.00H / r = 0.12H
+  文字 bbox: x 326〜755 / y 255〜444 (H=189)
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="280 200 520 300">
+  <rect x="280" y="200" width="520" height="300" fill="#0A0A0F"/>
+  <text x="540" y="430" font-family="'Helvetica Neue', 'Arial', system-ui, sans-serif" font-size="240" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-10">Que</text>
+  <circle cx="774" cy="255" r="22.7" fill="#F97316"/>
+</svg>

@@ -7,5 +7,6 @@
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
   <text x="512" y="700" font-family="'Helvetica Neue', 'Arial', system-ui, sans-serif" font-size="620" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-24">Q</text>
-  <circle cx="720" cy="330" r="52" fill="#F97316"/>
+  <!-- ドット位置は logo-q.svg と同じ比率ルール (右端+0.075H / 上端+0.179H / r=0.107H, H=492) -->
+  <circle cx="765" cy="335" r="53" fill="#F97316"/>
 </svg>
