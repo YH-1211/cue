@@ -12,4 +12,6 @@ export const SITE = {
   contactEmail: "cue.event.info@gmail.com",
   // 規約・ポリシーの制定日（必要に応じて改定日を更新）
   effectiveDate: "2026年7月21日",
+  // 利用規約の最終改定日（本文を書き換えたら必ず更新する）
+  termsRevisedDate: "2026年9月10日",
 } as const;
