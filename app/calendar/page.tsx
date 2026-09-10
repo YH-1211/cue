@@ -19,14 +19,14 @@ type Cue = {
   category?: EventCategory;
 };
 
-// 東京近辺の「季節の合図」。match の各語を title/description に OR 部分一致させ、
+// 関東近辺の「季節の合図」。match の各語を title/description に OR 部分一致させ、
 // exclude に含む語は除外する。1語ベタ一致だと「梅→青梅市」のような誤マッチが
 // 出るため、具体的な複数語 + 除外語で精度を上げている。
 const CUES: Cue[] = [
   { key: "hatsumode", emoji: "⛩️", title: "初詣", hint: "新年の参拝・カウントダウン", months: [12, 1], match: ["初詣", "参拝", "カウントダウン"], category: "festival" },
   { key: "setsubun", emoji: "👹", title: "節分・梅まつり", hint: "豆まきと梅の便り", months: [2], match: ["節分", "豆まき", "梅まつり", "梅祭り", "梅園", "観梅"], exclude: ["青梅", "梅田", "梅雨", "松竹梅"] },
   { key: "hina", emoji: "🎎", title: "雛祭り・春の予感", hint: "ひな人形・春のイベント", months: [3], match: ["雛祭り", "ひな祭り", "ひなまつり", "雛人形", "ひな人形"] },
-  { key: "sakura", emoji: "🌸", title: "桜・花見", hint: "都内の桜スポット&夜桜", months: [3, 4], match: ["桜", "花見", "夜桜", "さくら"], exclude: ["桜木町", "桜坂", "桜田", "桜新町", "桜上水"], category: "festival" },
+  { key: "sakura", emoji: "🌸", title: "桜・花見", hint: "関東の桜スポット&夜桜", months: [3, 4], match: ["桜", "花見", "夜桜", "さくら"], exclude: ["桜木町", "桜坂", "桜田", "桜新町", "桜上水"], category: "festival" },
   { key: "gw", emoji: "🎏", title: "端午・GWイベント", hint: "こどもの日・大型連休の催し", months: [4, 5], match: ["こいのぼり", "鯉のぼり", "端午", "こどもの日"] },
   { key: "ajisai", emoji: "💠", title: "紫陽花", hint: "梅雨に映えるあじさい名所", months: [5, 6], match: ["紫陽花", "あじさい", "アジサイ"] },
   { key: "tanabata", emoji: "🎋", title: "七夕", hint: "短冊と笹飾り", months: [7], match: ["七夕", "たなばた"], category: "festival" },
@@ -126,7 +126,7 @@ export default async function CalendarPage() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">季節カレンダー</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          東京の「いまの合図」と、もうすぐ来る季節。クリックして探しに行こう。
+          関東の「いまの合図」と、もうすぐ来る季節。クリックして探しに行こう。
         </p>
       </header>
 

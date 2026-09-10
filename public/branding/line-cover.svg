@@ -10,5 +10,5 @@
   <text x="540" y="430" font-family="'Helvetica Neue', 'Arial', system-ui, sans-serif" font-size="240" font-weight="800" fill="#FFFFFF" text-anchor="middle" letter-spacing="-10">Que</text>
   <circle cx="795" cy="238" r="26" fill="#F97316"/>
   <!-- タグライン -->
-  <text x="540" y="540" font-family="'Hiragino Sans', 'Helvetica Neue', system-ui, sans-serif" font-size="46" font-weight="600" fill="#B8B8C0" text-anchor="middle" letter-spacing="6">東京・関東のイベントを、見つけよう。</text>
+  <text x="540" y="540" font-family="'Hiragino Sans', 'Helvetica Neue', system-ui, sans-serif" font-size="46" font-weight="600" fill="#B8B8C0" text-anchor="middle" letter-spacing="6">関東のイベントを、見つけよう。</text>
 </svg>

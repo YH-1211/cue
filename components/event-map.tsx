@@ -107,7 +107,7 @@ export function EventMap({
         ref={containerRef}
         className={className ?? "h-72 w-full"}
         role="img"
-        aria-label="東京イベントマップ"
+        aria-label="関東イベントマップ"
       />
       <div className="flex items-center justify-center gap-4 p-2 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
