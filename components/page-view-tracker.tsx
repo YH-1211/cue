@@ -18,6 +18,9 @@ export function PageViewTracker() {
   useEffect(() => {
     if (!pathname) return;
     if (SKIP_PREFIXES.some((p) => pathname.startsWith(p))) return;
+    // 開発中のアクセスが本番の集計に混ざらないようにする
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") return;
     if (lastSent.current === pathname) return;
     lastSent.current = pathname;
 
