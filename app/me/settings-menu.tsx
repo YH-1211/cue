@@ -61,7 +61,8 @@ export function SettingsMenu({ admin, root, pendingCount }: Props) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 z-50 w-56 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg">
+        // 管理者は項目が多いので、画面からはみ出す分はメニュー内でスクロールさせる
+        <div className="absolute right-0 top-11 z-50 max-h-[70vh] w-56 overflow-y-auto overscroll-contain rounded-lg border border-border bg-card py-1 shadow-lg">
           {SETTINGS_LINKS.map((l) => (
             <Link
               key={l.href}

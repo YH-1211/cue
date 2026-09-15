@@ -98,9 +98,11 @@ export default async function MePage() {
         <BackButton fallbackHref="/" label="戻る" />
       </nav>
 
-      <header className="relative overflow-hidden rounded-2xl border border-border bg-card">
+      {/* overflow-hidden は付けない (設定メニューがヘッダー外にはみ出すため)。
+          角丸はカバー側に rounded-t-2xl を付けて見た目を保つ。 */}
+      <header className="relative rounded-2xl border border-border bg-card">
         {/* カバー: ブランド色のグラデーション */}
-        <div className="h-24 bg-gradient-to-br from-primary/40 via-primary/15 to-transparent sm:h-28">
+        <div className="h-24 rounded-t-2xl bg-gradient-to-br from-primary/40 via-primary/15 to-transparent sm:h-28">
           <div className="absolute right-3 top-3">
             <SettingsMenu
               admin={admin}
