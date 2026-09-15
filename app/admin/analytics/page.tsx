@@ -28,16 +28,36 @@ type EventRow = {
   starts_at: string;
 };
 
-// 期間フィルタの選択肢
+// 日本時間の「今日の0時」を返す。
+// サーバーのタイムゾーンに関係なく同じ境界になるよう UTC 上で計算する。
+function jstStartOfToday(): Date {
+  const shifted = new Date(Date.now() + 9 * 3600_000);
+  shifted.setUTCHours(0, 0, 0, 0);
+  return new Date(shifted.getTime() - 9 * 3600_000);
+}
+
+function daysAgo(n: number): Date {
+  return new Date(Date.now() - n * 86400_000);
+}
+
+// 期間フィルタの選択肢。since が null なら全期間。
 const PERIODS = [
-  { key: "7", label: "直近7日", days: 7 },
-  { key: "30", label: "直近30日", days: 30 },
-  { key: "all", label: "全期間", days: null as number | null },
+  { key: "today", label: "本日", since: jstStartOfToday },
+  { key: "7", label: "直近7日", since: () => daysAgo(7) },
+  { key: "30", label: "直近30日", since: () => daysAgo(30) },
+  { key: "all", label: "全期間", since: () => null },
 ];
 
 function pct(part: number, whole: number): string {
   if (whole <= 0) return "—";
   return `${((part / whole) * 100).toFixed(1)}%`;
+}
+
+// 出現回数の多い順に上位5件を返す
+function rank(values: string[]): [string, number][] {
+  const counts = new Map<string, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
 }
 
 export default async function AdminAnalyticsPage({
@@ -55,22 +75,43 @@ export default async function AdminAnalyticsPage({
   const period =
     PERIODS.find((p) => p.key === daysParam) ??
     PERIODS.find((p) => p.key === "30")!;
-  const days = period.days;
+  const since = period.since()?.toISOString() ?? null;
 
   const admin = createAdminClient();
 
   // イベントごとの表示・クリック集計（RPC）
   const { data: statData, error: statErr } = await admin.rpc("get_event_stats", {
-    days,
+    since,
   });
   const stats = (statData ?? []) as StatRow[];
 
+  // サイト全体のページ閲覧（トップ・一覧・カレンダーを含む）
+  let pageQuery = admin
+    .from("page_views")
+    .select("path, referrer_host, utm_source, session_id");
+  if (since) pageQuery = pageQuery.gte("occurred_at", since);
+  const { data: pageRows } = await pageQuery;
+  const pageViews = (pageRows ?? []) as {
+    path: string;
+    referrer_host: string | null;
+    utm_source: string | null;
+    session_id: string | null;
+  }[];
+
+  const siteSessions = new Set(
+    pageViews.map((v) => v.session_id).filter(Boolean)
+  ).size;
+  const topPaths = rank(pageViews.map((v) => v.path));
+  // 流入元は広告パラメータを優先し、無ければリンク元ホスト名を使う
+  const topSources = rank(
+    pageViews
+      .map((v) => v.utm_source ?? v.referrer_host)
+      .filter((s): s is string => Boolean(s))
+  );
+
   // 保存数（saved_events）を期間で絞って集計
   let savedQuery = admin.from("saved_events").select("event_id, created_at");
-  if (days != null) {
-    const since = new Date(Date.now() - days * 86400000).toISOString();
-    savedQuery = savedQuery.gte("created_at", since);
-  }
+  if (since) savedQuery = savedQuery.gte("created_at", since);
   const { data: savedRows } = await savedQuery;
   const saveCount = new Map<string, number>();
   for (const r of (savedRows ?? []) as { event_id: string }[]) {
@@ -175,7 +216,67 @@ export default async function AdminAnalyticsPage({
         </div>
       )}
 
+      {/* サイト全体のアクセス（トップ・一覧・カレンダーを含む） */}
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-semibold">サイト全体のアクセス</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="flex flex-col gap-1 rounded-xl border border-border bg-card p-4">
+            <span className="text-xs text-muted-foreground">ページ閲覧</span>
+            <span className="text-2xl font-bold tabular-nums">
+              {pageViews.length.toLocaleString()}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              全ページ合計
+            </span>
+          </div>
+          <div className="flex flex-col gap-1 rounded-xl border border-border bg-card p-4">
+            <span className="text-xs text-muted-foreground">訪問者</span>
+            <span className="text-2xl font-bold tabular-nums">
+              {siteSessions.toLocaleString()}
+            </span>
+            <span className="text-xs text-muted-foreground">概算の端末数</span>
+          </div>
+          <div className="col-span-2 flex flex-col gap-1 rounded-xl border border-border bg-card p-4">
+            <span className="text-xs text-muted-foreground">流入元</span>
+            {topSources.length === 0 ? (
+              <span className="text-sm text-muted-foreground">
+                直接アクセスのみ
+              </span>
+            ) : (
+              <ul className="mt-0.5 space-y-0.5 text-sm">
+                {topSources.map(([name, count]) => (
+                  <li key={name} className="flex justify-between gap-2">
+                    <span className="truncate">{name}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {count.toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+        {topPaths.length > 0 && (
+          <div className="mt-3 rounded-xl border border-border bg-card p-4">
+            <span className="text-xs text-muted-foreground">
+              よく見られているページ
+            </span>
+            <ul className="mt-1 space-y-0.5 text-sm">
+              {topPaths.map(([path, count]) => (
+                <li key={path} className="flex justify-between gap-2">
+                  <span className="truncate font-mono text-xs">{path}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {count.toLocaleString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+
       {/* サマリーカード */}
+      <h2 className="mb-3 text-sm font-semibold">イベント別の反応</h2>
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {summary.map((c) => (
           <div
@@ -275,6 +376,8 @@ export default async function AdminAnalyticsPage({
 
       <p className="mt-4 text-xs text-muted-foreground">
         ※ 表示は同一利用者の連続リロードを30分単位でまとめています。ユニークは概算の端末数です。
+        <br />
+        ※ 「サイト全体のアクセス」の計測開始は2026年9月15日です。それ以前はイベント詳細ページしか記録していないため、遡って比較はできません。
       </p>
     </div>
   );
