@@ -16,6 +16,9 @@ const VIEW_DEDUPE_MINUTES = 30;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// ページパスとして受け付ける形（クエリ・フラグメントはクライアント側で除去済み）
+const PATH_RE = /^\/[\w\-./%~]*$/;
+
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, {
     name: "track",
@@ -24,17 +27,18 @@ export async function POST(req: NextRequest) {
   });
   if (limited) return limited;
 
-  let body: { eventId?: unknown; kind?: unknown };
+  let body: {
+    eventId?: unknown;
+    kind?: unknown;
+    path?: unknown;
+    referrer?: unknown;
+    utmSource?: unknown;
+    utmMedium?: unknown;
+    utmCampaign?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false }, { status: 400 });
-  }
-
-  const eventId = typeof body.eventId === "string" ? body.eventId : "";
-  const kind = body.kind as Kind;
-
-  if (!UUID_RE.test(eventId) || !KINDS.includes(kind)) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
@@ -48,6 +52,37 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+
+  // ---- ページビュー（全ページ共通）----------------------------------
+  // { path } を含むリクエストはページ閲覧として page_views に記録する。
+  if (typeof body.path === "string") {
+    const path = body.path;
+    if (path.length > 300 || !PATH_RE.test(path)) {
+      return NextResponse.json({ ok: false }, { status: 400 });
+    }
+
+    const { error } = await admin.from("page_views").insert({
+      path,
+      referrer_host: externalHost(body.referrer, req),
+      utm_source: shortText(body.utmSource),
+      utm_medium: shortText(body.utmMedium),
+      utm_campaign: shortText(body.utmCampaign),
+      session_id: sid,
+    });
+    if (error) {
+      console.error("page view insert failed:", error.message);
+      return jsonWithSid({ ok: false }, sid, setCookie);
+    }
+    return jsonWithSid({ ok: true }, sid, setCookie);
+  }
+
+  // ---- イベント単位の計測（詳細ページ）------------------------------
+  const eventId = typeof body.eventId === "string" ? body.eventId : "";
+  const kind = body.kind as Kind;
+
+  if (!UUID_RE.test(eventId) || !KINDS.includes(kind)) {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
 
   // view は直近 N 分の重複を除外（リロード連打・プリフェッチ対策）
   if (kind === "view") {
@@ -79,6 +114,27 @@ export async function POST(req: NextRequest) {
   }
 
   return jsonWithSid({ ok: true }, sid, setCookie);
+}
+
+// 流入元のホスト名だけを取り出す。
+// URL 全体（検索語やパスを含む）は保存しない。自サイト内の遷移は null にして
+// 「外から来た」ものだけが残るようにする。
+function externalHost(referrer: unknown, req: NextRequest): string | null {
+  if (typeof referrer !== "string" || !referrer) return null;
+  try {
+    const host = new URL(referrer).hostname;
+    if (!host || host === req.nextUrl.hostname) return null;
+    return host.slice(0, 120);
+  } catch {
+    return null;
+  }
+}
+
+// utm_* は外部から自由に入る値なので、長さを切り詰めて制御文字を落とす。
+function shortText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const cleaned = value.replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  return cleaned ? cleaned.slice(0, 100) : null;
 }
 
 function jsonWithSid(

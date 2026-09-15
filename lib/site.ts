@@ -15,5 +15,5 @@ export const SITE = {
   // 利用規約の最終改定日（本文を書き換えたら必ず更新する）
   termsRevisedDate: "2026年9月10日",
   // プライバシーポリシーの最終改定日（本文を書き換えたら必ず更新する）
-  privacyRevisedDate: "2026年9月11日",
+  privacyRevisedDate: "2026年9月15日",
 } as const;
