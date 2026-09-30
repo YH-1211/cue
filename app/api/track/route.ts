@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { isAdmin } from "@/lib/admin";
 
 // 匿名の計測用 Cookie（ログインとは無関係。個人特定はしない）
 const SID_COOKIE = "cue_sid";
@@ -44,6 +45,13 @@ export async function POST(req: NextRequest) {
 
   // 匿名 session_id を用意（無ければ発行）
   const jar = await cookies();
+
+  // 運営（管理者）自身の閲覧は集計に入れない。
+  // ページビュー・イベント計測の両方が対象。
+  if (await isOperator(jar)) {
+    return NextResponse.json({ ok: true, skipped: "operator" });
+  }
+
   let sid = jar.get(SID_COOKIE)?.value;
   let setCookie = false;
   if (!sid || !UUID_RE.test(sid)) {
@@ -114,6 +122,17 @@ export async function POST(req: NextRequest) {
   }
 
   return jsonWithSid({ ok: true }, sid, setCookie);
+}
+
+// 管理者としてログインしているか。
+// 未ログインのアクセスが大半なので、Supabase の認証 Cookie が無いリクエストでは
+// 問い合わせ自体を省いて余計な往復を作らない。
+async function isOperator(jar: Awaited<ReturnType<typeof cookies>>) {
+  const hasAuthCookie = jar
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
+  if (!hasAuthCookie) return false;
+  return isAdmin();
 }
 
 // 流入元のホスト名だけを取り出す。

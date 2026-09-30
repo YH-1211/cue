@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# 作業用の一時ファイル (日次レポート・DB のバックアップなど)
+/tmp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
