@@ -12,10 +12,15 @@ import {
   eventScheduleLabel,
   isEventCategory,
   isParentCategory,
-  type EventCategory,
 } from "@/lib/events";
 import { AREA_COORDS, type AreaName } from "@/lib/tokyo-areas";
 import { startOfTodayJstIso } from "@/lib/datetime";
+import {
+  searchEvents,
+  type SearchableEvent,
+  type SearchFacets,
+  type SearchSort,
+} from "@/lib/search-events";
 import { EventsFilters } from "@/app/events/filters";
 import { NearbyClient, type MapEvent } from "@/app/nearby/nearby-client";
 import { SaveSearchBar } from "./save-search-bar";
@@ -27,19 +32,6 @@ export const metadata = { title: "検索" };
 function isAreaName(s: string | null | undefined): s is AreaName {
   return !!s && s in AREA_COORDS;
 }
-
-type EventRow = {
-  id: string;
-  title: string;
-  starts_at: string;
-  venue_name: string | null;
-  area: string | null;
-  category: EventCategory;
-  cover_image_url: string | null;
-  has_food_stalls: boolean | null;
-  ends_at: string | null;
-  is_permanent: boolean | null;
-};
 
 type SearchParams = {
   q?: string;
@@ -56,11 +48,6 @@ type SearchParams = {
 
 // 1回に表示する件数と、「もっと見る」で増える単位
 const PAGE_SIZE = 50;
-
-type Facets = {
-  categories: Record<string, number>;
-  areas: Record<string, number>;
-};
 
 function resolveDateRange(preset: string | undefined): {
   from?: string;
@@ -177,17 +164,17 @@ export default async function SearchPage({
     }
   }
 
-  let events: EventRow[] = [];
+  let events: SearchableEvent[] = [];
   let hasMore = false;
   let errorMessage: string | null = null;
-  let facets: Facets = { categories: {}, areas: {} };
+  let facets: SearchFacets = { categories: {}, areas: {} };
 
   // 条件が何も無いときはクエリしない (一覧目的なら /events へ誘導)
   if (view === "list" && hasFilter) {
     const { from: dateFrom, to: dateTo } = resolveDateRange(datePreset);
     const baseFrom = dateFrom ?? startOfTodayJstIso();
 
-    // 親カテゴリは配下のサブカテゴリ全てに展開して RPC へ渡す
+    // 親カテゴリは配下のサブカテゴリ全てに展開して検索条件にする
     const categoryList = activeCategory
       ? isParentCategory(activeCategory)
         ? categoriesUnderParent(activeCategory)
@@ -196,39 +183,26 @@ export default async function SearchPage({
 
     // 並び替え: 新着順は new、キーワード有り(既定)は関連度順、それ以外は開催が近い順。
     // 人気順は近い順で取得してから保存数で並べ替える。
-    const rpcSort =
+    const sortKey: SearchSort =
       sort === "new" ? "new" : q && sort !== "popular" ? "relevant" : "soon";
 
-    const [{ data, error }, { data: facetData }] = await Promise.all([
-      supabase.rpc("search_events", {
-        p_q: q || null,
-        p_categories: categoryList,
-        p_areas: areas,
-        p_date_from: baseFrom,
-        p_date_to: dateTo ?? null,
-        p_free_only: freeOnly,
-        p_evening_only: eveningOnly,
-        p_food_stalls: foodStallsOnly,
-        p_sort: rpcSort,
-        // 1件多く取って「次があるか」を判定する
-        p_limit: show + 1,
-      }),
-      supabase.rpc("search_event_facets", {
-        p_q: q || null,
-        p_date_from: baseFrom,
-        p_date_to: dateTo ?? null,
-        p_free_only: freeOnly,
-        p_evening_only: eveningOnly,
-        p_food_stalls: foodStallsOnly,
-      }),
-    ]);
+    const result = await searchEvents(supabase, {
+      q,
+      categories: categoryList,
+      areas,
+      dateFrom: baseFrom,
+      dateTo: dateTo ?? null,
+      freeOnly,
+      eveningOnly,
+      foodStalls: foodStallsOnly,
+      sort: sortKey,
+    });
 
-    const fetched = (data ?? []) as EventRow[];
-    hasMore = fetched.length > show;
-    events = hasMore ? fetched.slice(0, show) : fetched;
-    if (error) console.error("[search] query failed:", error);
-    errorMessage = error?.message ?? null;
-    if (facetData) facets = facetData as Facets;
+    hasMore = result.events.length > show;
+    events = result.events.slice(0, show);
+    if (result.error) console.error("[search] query failed:", result.error);
+    errorMessage = result.error;
+    facets = result.facets;
 
     // 人気順: 取得済みイベントの「行きたい」保存数で降順に並べ替える
     if (sort === "popular" && events.length > 0) {
@@ -308,8 +282,8 @@ function SearchListView({
 }: {
   hasFilter: boolean;
   errorMessage: string | null;
-  events: EventRow[];
-  facets: Facets;
+  events: SearchableEvent[];
+  facets: SearchFacets;
   loggedIn: boolean;
   hasMore: boolean;
   moreHref: string;
