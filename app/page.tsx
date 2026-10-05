@@ -175,7 +175,7 @@ export default async function Home() {
               Que
             </h1>
             <p className="max-w-md text-lg font-medium text-foreground sm:text-xl">
-              関東のイベント情報を、まとめてチェック。
+              気になるイベントを、まとめてチェック。
             </p>
             {typeof totalCount === "number" && (
               <p className="text-sm text-muted-foreground">

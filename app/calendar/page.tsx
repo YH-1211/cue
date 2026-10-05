@@ -126,7 +126,7 @@ export default async function CalendarPage() {
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">季節カレンダー</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          関東の「いまの合図」と、もうすぐ来る季節。クリックして探しに行こう。
+          「いまの合図」と、もうすぐ来る季節。クリックして探しに行こう。
         </p>
       </header>
 
