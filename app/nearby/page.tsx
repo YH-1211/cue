@@ -14,7 +14,9 @@ export default async function NearbyPage() {
   // マップ用: 今後の承認済みイベントを座標つきで取得
   const { data: rows } = await supabase
     .from("events")
-    .select("id, title, area, starts_at, lat, lng")
+    .select(
+      "id, title, area, venue_name, category, starts_at, ends_at, is_permanent, lat, lng"
+    )
     .eq("approved", true)
     .gte("effective_end", new Date().toISOString())
     .not("lat", "is", null)

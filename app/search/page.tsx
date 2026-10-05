@@ -156,7 +156,9 @@ export default async function SearchPage({
   if (view === "map") {
     const { data: rows } = await supabase
       .from("events")
-      .select("id, title, area, starts_at, lat, lng")
+      .select(
+        "id, title, area, venue_name, category, starts_at, ends_at, is_permanent, lat, lng"
+      )
       .eq("approved", true)
       .gte("effective_end", startOfTodayJstIso())
       .not("lat", "is", null)

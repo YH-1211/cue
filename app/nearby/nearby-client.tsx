@@ -17,6 +17,7 @@ import {
 import {
   CATEGORY_LABELS,
   categoryBadgeClass,
+  eventScheduleLabel,
   formatEventDateTime,
   PARENT_CATEGORIES,
   PARENT_LABELS,
@@ -30,7 +31,11 @@ export type MapEvent = {
   id: string;
   title: string;
   area: string | null;
-  starts_at: string;
+  venue_name: string | null;
+  category: EventCategory;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_permanent: boolean | null;
   lat: number;
   lng: number;
 };
@@ -79,6 +84,13 @@ export function NearbyClient({
         title: m.title,
         lat: m.lat,
         lng: m.lng,
+        categoryLabel: CATEGORY_LABELS[m.category],
+        dateText: eventScheduleLabel(
+          m.starts_at,
+          m.ends_at,
+          m.is_permanent ?? false
+        ).text,
+        placeText: [m.area, m.venue_name].filter(Boolean).join(" / "),
       })),
     [mapEvents]
   );
