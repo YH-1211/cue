@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   PARENT_CATEGORIES,
+  PARENT_EMOJI,
   PARENT_LABELS,
   SUBCATEGORIES,
   SUBCATEGORY_LABELS,
@@ -360,55 +361,63 @@ export function EventsFilters({
           カテゴリ・詳細な絞り込み {detailCount > 0 && `(${detailCount})`}
         </summary>
 
-        {/* カテゴリ (親 → サブの2階層) */}
+        {/* カテゴリ (縦リスト。親の行を押すと配下のサブが開く) */}
         {(() => {
           const active = category && isEventCategory(category) ? category : "";
           const activeParent = active ? parentOf(active) : null;
+          // 「すべて」の件数はファセットの合計 (イベントはカテゴリを1つだけ持つ)
+          const total = facets
+            ? Object.values(facets.categories).reduce((a, b) => a + b, 0)
+            : null;
           return (
-            <div className="mt-3 flex flex-col gap-2">
+            <div className="mt-3 flex flex-col gap-1.5">
               <span className="text-xs font-medium text-muted-foreground">
                 カテゴリ
               </span>
-              {/* 親カテゴリ (横スクロールせず折り返しで全部見せる) */}
-              <div className="flex flex-wrap gap-1.5">
-                <PillButton
-                  active={active === ""}
-                  onClick={() => selectCategory("")}
-                >
-                  全カテゴリ
-                </PillButton>
-                {PARENT_CATEGORIES.map((p) => (
-                  <PillButton
-                    key={p}
-                    active={activeParent === p}
-                    onClick={() => selectCategory(p)}
-                    count={catCount(p)}
-                  >
-                    {PARENT_LABELS[p]}
-                  </PillButton>
-                ))}
-              </div>
-              {/* サブカテゴリ (親選択時のみ) */}
-              {activeParent && (
-                <div className="flex flex-wrap gap-1.5 border-t border-border pt-2">
-                  <PillButton
-                    active={isParentCategory(active as string)}
-                    onClick={() => selectCategory(activeParent)}
-                  >
-                    {PARENT_LABELS[activeParent]} (すべて)
-                  </PillButton>
-                  {SUBCATEGORIES[activeParent].map((sub) => (
-                    <PillButton
-                      key={sub}
-                      active={active === sub}
-                      onClick={() => selectCategory(sub)}
-                      count={catCount(sub)}
-                    >
-                      {SUBCATEGORY_LABELS[sub]}
-                    </PillButton>
-                  ))}
-                </div>
-              )}
+              <ul className="overflow-hidden rounded-lg border border-border">
+                <li>
+                  <CategoryRow
+                    label="すべてのカテゴリ"
+                    active={active === ""}
+                    count={total}
+                    onClick={() => selectCategory("")}
+                  />
+                </li>
+                {PARENT_CATEGORIES.map((p) => {
+                  const expanded = activeParent === p;
+                  return (
+                    <li key={p} className="border-t border-border">
+                      <CategoryRow
+                        label={PARENT_LABELS[p]}
+                        emoji={PARENT_EMOJI[p]}
+                        active={expanded}
+                        count={catCount(p)}
+                        expanded={expanded}
+                        // 親を選択中にもう一度押したら解除、それ以外は親で絞り込む
+                        onClick={() => selectCategory(active === p ? "" : p)}
+                      />
+                      {expanded && (
+                        <ul className="border-t border-border bg-muted/30">
+                          {SUBCATEGORIES[p].map((sub) => (
+                            <li key={sub}>
+                              <CategoryRow
+                                label={SUBCATEGORY_LABELS[sub]}
+                                active={active === sub}
+                                count={catCount(sub)}
+                                indent
+                                // サブを解除したら親 (すべて) に戻す
+                                onClick={() =>
+                                  selectCategory(active === sub ? p : sub)
+                                }
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           );
         })()}
@@ -464,6 +473,64 @@ export function EventsFilters({
         </div>
       </details>
     </div>
+  );
+}
+
+// カテゴリの1行。親行は絵文字と開閉マーク付き、サブ行は字下げして表示する。
+function CategoryRow({
+  label,
+  emoji,
+  count,
+  active,
+  expanded,
+  indent,
+  onClick,
+}: {
+  label: string;
+  emoji?: string;
+  count?: number | null;
+  active: boolean;
+  expanded?: boolean;
+  indent?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-expanded={expanded}
+      className={cn(
+        "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
+        indent && "pl-10",
+        active
+          ? "bg-primary/10 font-medium text-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+    >
+      {emoji && (
+        <span aria-hidden className="w-5 shrink-0 text-center">
+          {emoji}
+        </span>
+      )}
+      <span className="flex-1 truncate">{label}</span>
+      {typeof count === "number" && (
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          {count}
+        </span>
+      )}
+      {typeof expanded === "boolean" && (
+        <span
+          aria-hidden
+          className={cn(
+            "shrink-0 text-xs text-muted-foreground transition-transform",
+            expanded && "rotate-90"
+          )}
+        >
+          ›
+        </span>
+      )}
+    </button>
   );
 }
 

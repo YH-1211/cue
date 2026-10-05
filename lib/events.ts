@@ -78,6 +78,19 @@ export const PARENT_LABELS: Record<ParentCategory, string> = {
   sports: "スポーツ",
 };
 
+// 親カテゴリの絵文字 (リスト表示で行を見分けやすくするための飾り)
+export const PARENT_EMOJI: Record<ParentCategory, string> = {
+  art: "🎨",
+  music: "🎵",
+  theater: "🎭",
+  festival: "🎪",
+  food: "🍴",
+  seasonal: "🌸",
+  film: "🎬",
+  learning: "📚",
+  sports: "⚽",
+};
+
 // サブカテゴリーラベル
 export const SUBCATEGORY_LABELS: Record<string, string> = {
   art_contemporary: "現代アート",
