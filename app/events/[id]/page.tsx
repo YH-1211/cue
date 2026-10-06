@@ -433,10 +433,19 @@ export default async function EventDetailPage({
           >
             {CATEGORY_LABELS[event.category]}
           </Badge>
+          {/* タグを押すと、同じタグが付いたイベントを検索で見られる */}
           {tags.map((tag) => (
-            <Badge key={tag.slug} variant="outline">
-              {tag.name}
-            </Badge>
+            <Link
+              key={tag.slug}
+              href={`/search?tags=${encodeURIComponent(tag.slug)}`}
+            >
+              <Badge
+                variant="outline"
+                className="transition-colors hover:bg-muted"
+              >
+                {tag.name}
+              </Badge>
+            </Link>
           ))}
         </div>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">

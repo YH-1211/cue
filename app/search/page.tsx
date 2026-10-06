@@ -38,6 +38,7 @@ type SearchParams = {
   date?: string;
   category?: string;
   areas?: string;
+  tags?: string;
   sort?: string;
   view?: string;
   free?: string;
@@ -105,6 +106,10 @@ export default async function SearchPage({
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  const tags = (sp.tags ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   // 表示件数。URL から受け取るので上限を設けて過大なクエリを防ぐ
   const parsedShow = Number.parseInt(sp.show ?? "", 10);
@@ -127,6 +132,7 @@ export default async function SearchPage({
     !!datePreset ||
     !!activeCategory ||
     areas.length > 0 ||
+    tags.length > 0 ||
     freeOnly ||
     eveningOnly ||
     foodStallsOnly;
@@ -167,7 +173,7 @@ export default async function SearchPage({
   let events: SearchableEvent[] = [];
   let hasMore = false;
   let errorMessage: string | null = null;
-  let facets: SearchFacets = { categories: {}, areas: {} };
+  let facets: SearchFacets = { categories: {}, areas: {}, tags: {} };
 
   // 条件が何も無いときはクエリしない (一覧目的なら /events へ誘導)
   if (view === "list" && hasFilter) {
@@ -190,6 +196,7 @@ export default async function SearchPage({
       q,
       categories: categoryList,
       areas,
+      tags,
       dateFrom: baseFrom,
       dateTo: dateTo ?? null,
       freeOnly,

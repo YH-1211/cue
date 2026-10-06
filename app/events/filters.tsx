@@ -26,7 +26,18 @@ import { cn } from "@/lib/utils";
 type Facets = {
   categories: Record<string, number>;
   areas: Record<string, number>;
+  tags: Record<string, number>;
 };
+
+// 横断タグ。カテゴリ (何のイベントか) とは別の軸で、
+// 「どんな過ごし方ができるか」を選べるようにする。
+const TAG_OPTIONS = [
+  { slug: "rain-ok", label: "☔ 雨でもOK" },
+  { slug: "outdoor", label: "🌳 屋外" },
+  { slug: "illumination", label: "✨ ライトアップ" },
+  { slug: "parade", label: "🎊 パレード・行進" },
+  { slug: "large-scale", label: "🔥 規模がすごい" },
+] as const;
 
 const DATE_PRESETS = [
   { value: "", label: "いつでも" },
@@ -52,6 +63,7 @@ export function EventsFilters({
   const category = params.get("category") ?? "";
   const sort = params.get("sort") ?? "";
   const areas = (params.get("areas") ?? "").split(",").filter(Boolean);
+  const tags = (params.get("tags") ?? "").split(",").filter(Boolean);
   const free = params.get("free") === "1";
   const evening = params.get("evening") === "1";
   const foodStalls = params.get("food") === "1";
@@ -72,6 +84,10 @@ export function EventsFilters({
   function areaCount(value: string): number | null {
     if (!facets) return null;
     return facets.areas[value] ?? 0;
+  }
+  function tagCount(value: string): number | null {
+    if (!facets) return null;
+    return facets.tags[value] ?? 0;
   }
 
   // 検索ページでは現在の絞り込み条件を保存し、タブを離れたりアプリを開き直しても続きから再開できるようにする
@@ -161,6 +177,7 @@ export function EventsFilters({
     category?: string;
     sort?: string;
     areas?: string[];
+    tags?: string[];
     free?: boolean;
     evening?: boolean;
     food?: boolean;
@@ -171,6 +188,7 @@ export function EventsFilters({
     const newCategory = next.category ?? category;
     const newSort = next.sort ?? sort;
     const newAreas = next.areas ?? areas;
+    const newTags = next.tags ?? tags;
     const newFree = next.free ?? free;
     const newEvening = next.evening ?? evening;
     const newFood = next.food ?? foodStalls;
@@ -179,6 +197,7 @@ export function EventsFilters({
     if (newCategory) sp.set("category", newCategory);
     if (newSort) sp.set("sort", newSort);
     if (newAreas.length > 0) sp.set("areas", newAreas.join(","));
+    if (newTags.length > 0) sp.set("tags", newTags.join(","));
     if (newFree) sp.set("free", "1");
     if (newEvening) sp.set("evening", "1");
     if (newFood) sp.set("food", "1");
@@ -192,6 +211,14 @@ export function EventsFilters({
       ? areas.filter((a) => a !== name)
       : [...areas, name];
     apply({ areas: next });
+  }
+
+  function toggleTag(slug: string) {
+    apply({
+      tags: tags.includes(slug)
+        ? tags.filter((t) => t !== slug)
+        : [...tags, slug],
+    });
   }
 
   function selectCategory(value: string) {
@@ -213,6 +240,7 @@ export function EventsFilters({
     category ||
     sort ||
     areas.length > 0 ||
+    tags.length > 0 ||
     free ||
     evening ||
     foodStalls;
@@ -223,6 +251,7 @@ export function EventsFilters({
     (free ? 1 : 0) +
     (evening ? 1 : 0) +
     (foodStalls ? 1 : 0) +
+    tags.length +
     areas.length;
 
   const SORTS = [
@@ -421,6 +450,30 @@ export function EventsFilters({
             </div>
           );
         })()}
+
+        {/* タグ (カテゴリとは別の軸。複数選ぶと「すべて満たす」で絞られる) */}
+        <div className="mt-4 flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">
+            タグ {tags.length > 0 && `(${tags.length})`}
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {TAG_OPTIONS.map((t) => {
+              const n = tagCount(t.slug);
+              return (
+                <PillButton
+                  key={t.slug}
+                  active={tags.includes(t.slug)}
+                  onClick={() => toggleTag(t.slug)}
+                >
+                  {t.label}
+                  {n !== null && (
+                    <span className="ml-1 tabular-nums opacity-60">{n}</span>
+                  )}
+                </PillButton>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="mt-4 flex flex-col gap-1.5">
           <span className="text-xs font-medium text-muted-foreground">

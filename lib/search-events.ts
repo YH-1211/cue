@@ -16,7 +16,9 @@ import type { EventCategory } from "@/lib/events";
 
 // 検索・表示に必要な列。説明と住所はキーワード照合のために取る。
 export const SEARCH_SELECT =
-  "id, title, starts_at, ends_at, is_permanent, venue_name, area, address, description, category, cover_image_url, has_food_stalls, created_at";
+  "id, title, starts_at, ends_at, is_permanent, venue_name, area, address, description, category, cover_image_url, has_food_stalls, created_at, event_tags(tags(slug))";
+
+type TagJoin = { tags: { slug: string } | null };
 
 export type SearchableEvent = {
   id: string;
@@ -32,7 +34,14 @@ export type SearchableEvent = {
   cover_image_url: string | null;
   has_food_stalls: boolean | null;
   created_at: string;
+  event_tags: TagJoin[];
 };
+
+function tagSlugs(e: SearchableEvent): string[] {
+  return (e.event_tags ?? [])
+    .map((t) => t.tags?.slug)
+    .filter((s): s is string => !!s);
+}
 
 export type SearchSort = "soon" | "new" | "relevant";
 
@@ -40,6 +49,8 @@ export type SearchQuery = {
   q: string;
   categories: string[];
   areas: string[];
+  /** タグの slug。複数指定したときは「すべて満たす」で絞る */
+  tags: string[];
   dateFrom: string;
   dateTo: string | null;
   freeOnly: boolean;
@@ -51,6 +62,7 @@ export type SearchQuery = {
 export type SearchFacets = {
   categories: Record<string, number>;
   areas: Record<string, number>;
+  tags: Record<string, number>;
 };
 
 // 1回の検索で DB から読む上限。公開イベントの総数より十分大きくしておく。
@@ -191,7 +203,7 @@ export async function searchEvents(
   if (error) {
     return {
       events: [],
-      facets: { categories: {}, areas: {} },
+      facets: { categories: {}, areas: {}, tags: {} },
       error: error.message,
     };
   }
@@ -211,20 +223,29 @@ export async function searchEvents(
     base = evening.filter((e) => matchesFuzzy(e, tokens));
   }
 
-  const facets: SearchFacets = { categories: {}, areas: {} };
+  const facets: SearchFacets = { categories: {}, areas: {}, tags: {} };
   for (const e of base) {
     facets.categories[e.category] = (facets.categories[e.category] ?? 0) + 1;
     if (e.area) facets.areas[e.area] = (facets.areas[e.area] ?? 0) + 1;
+    for (const slug of tagSlugs(e)) {
+      facets.tags[slug] = (facets.tags[slug] ?? 0) + 1;
+    }
   }
 
-  // カテゴリ・エリアの絞り込み
+  // カテゴリ・エリア・タグの絞り込み
   const categorySet = new Set(params.categories);
   const areaSet = new Set(params.areas);
-  const events = base.filter(
-    (e) =>
-      (categorySet.size === 0 || categorySet.has(e.category)) &&
-      (areaSet.size === 0 || (e.area !== null && areaSet.has(e.area)))
-  );
+  const events = base.filter((e) => {
+    if (categorySet.size > 0 && !categorySet.has(e.category)) return false;
+    if (areaSet.size > 0 && (e.area === null || !areaSet.has(e.area))) {
+      return false;
+    }
+    if (params.tags.length > 0) {
+      const slugs = new Set(tagSlugs(e));
+      if (!params.tags.every((t) => slugs.has(t))) return false;
+    }
+    return true;
+  });
 
   events.sort((a, b) => {
     if (params.sort === "new") return b.created_at.localeCompare(a.created_at);
