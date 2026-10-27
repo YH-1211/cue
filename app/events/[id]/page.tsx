@@ -615,7 +615,23 @@ export default async function EventDetailPage({
             </TrackedLink>
           ))}
         {!isExpired && (
-          <SaveButton eventId={event.id} saved={isSaved} loggedIn={!!viewer} />
+          <SaveButton
+            eventId={event.id}
+            saved={isSaved}
+            loggedIn={!!viewer}
+            event={{
+              id: event.id,
+              title: event.title,
+              starts_at: event.starts_at,
+              ends_at: event.ends_at,
+              venue_name: event.venue_name,
+              area: event.area,
+              category: event.category,
+              cover_image_url: event.cover_image_url,
+              has_food_stalls: event.has_food_stalls,
+              is_permanent: event.is_permanent,
+            }}
+          />
         )}
         {!isPast && hasDate && (
           <a

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Bookmark } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +11,7 @@ import {
   type EventCategory,
 } from "@/lib/events";
 import { isEventExpired } from "@/lib/datetime";
+import { LocalSavedList } from "./local-saved-list";
 
 export const metadata = { title: "行きたいイベント" };
 
@@ -35,8 +35,10 @@ export default async function SavedEventsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // 未ログインでも「行きたい」は端末に保存できるので、ログインへ飛ばさずに
+  // その端末の保存リストを見せる。
   if (!user) {
-    redirect("/login?next=/me/saved");
+    return <LocalSavedList />;
   }
 
   const { data } = await supabase

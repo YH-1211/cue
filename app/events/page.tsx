@@ -20,6 +20,7 @@ import {
   type EventCategory,
 } from "@/lib/events";
 import { startOfTodayJstIso } from "@/lib/datetime";
+import { areaLabel } from "@/lib/landing";
 
 export const metadata = { title: "イベント" };
 
@@ -158,11 +159,36 @@ export default async function EventsPage({
         </div>
       </header>
 
+      {/* まとめページへの導線。検索エンジンにも「エリア/ジャンル/月」の入口を知らせる */}
+      <nav
+        aria-label="まとめから探す"
+        className="mb-6 flex flex-wrap gap-2 text-sm"
+      >
+        <Link
+          href="/events/area"
+          className="rounded-full border border-border px-3 py-1 text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+        >
+          📍 エリアから探す
+        </Link>
+        <Link
+          href="/events/category"
+          className="rounded-full border border-border px-3 py-1 text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+        >
+          🎯 ジャンルから探す
+        </Link>
+        <Link
+          href="/events/month"
+          className="rounded-full border border-border px-3 py-1 text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+        >
+          🗓 開催月から探す
+        </Link>
+      </nav>
+
       {/* エリア絞り込み中の表示 */}
       {activeArea && (
         <div className="mb-4 flex items-center gap-2 text-sm">
           <span className="rounded-full border border-foreground bg-foreground px-3 py-1 text-xs text-background">
-            📍 {activeArea}区
+            📍 {areaLabel(activeArea)}
           </span>
           <Link
             href={

@@ -7,6 +7,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import { PWAInstallBanner } from "@/components/pwa-install-banner";
 import { PageViewTracker } from "@/components/page-view-tracker";
+import { SavedSync } from "@/components/saved-sync";
 import { SITE } from "@/lib/site";
 import { createClient } from "@/utils/supabase/server";
 
@@ -133,6 +134,7 @@ export default async function RootLayout({
         <ServiceWorkerRegister />
         <PWAInstallBanner />
         <PageViewTracker />
+        <SavedSync loggedIn={!!user} />
       </body>
     </html>
   );
