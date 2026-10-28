@@ -186,9 +186,14 @@ export async function searchEvents(
 }> {
   // DB 側で効率よく絞れる条件 (承認済み・日付・無料・屋台) だけ先に適用する。
   // 常設イベントは毎日やっているので、日付の範囲外でも残す。
+  //
+  // 日付は「開始日が範囲内か」ではなく「会期が範囲と重なるか」で見る。
+  // 開始日で判定すると、先週始まって今も開催中の展覧会・映画祭・まつりが
+  // すべて漏れてしまう (会期が長いイベントほど漏れる)。
+  // effective_end = coalesce(ends_at, starts_at) で、常設なら +infinity。
   const within = params.dateTo
-    ? `and(starts_at.gte.${params.dateFrom},starts_at.lte.${params.dateTo})`
-    : `starts_at.gte.${params.dateFrom}`;
+    ? `and(effective_end.gte.${params.dateFrom},starts_at.lte.${params.dateTo})`
+    : `effective_end.gte.${params.dateFrom}`;
 
   let query = supabase
     .from("events")

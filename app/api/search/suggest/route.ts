@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
     .from("events")
     .select("id, title, starts_at, area")
     .eq("approved", true)
-    .gte("starts_at", startOfTodayJstIso())
+    // 開催中のイベントも候補に出す (開始日で切ると会期中のものが漏れる)
+    .gte("effective_end", startOfTodayJstIso())
     .ilike("title", `%${safe}%`)
     .order("starts_at", { ascending: true })
     .limit(8);

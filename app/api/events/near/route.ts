@@ -50,7 +50,8 @@ export async function GET(req: NextRequest) {
       "area",
       areas.map((a) => a.area)
     )
-    .gte("starts_at", startOfTodayJstIso())
+    // 開催中のイベントも返す (開始日で切ると会期中のものが漏れる)
+    .gte("effective_end", startOfTodayJstIso())
     .order("starts_at", { ascending: true })
     .limit(limit);
 
